@@ -128,8 +128,13 @@ part renders normally alongside the chart, giving the interpretation.
 
 ## Model
 
-`anthropic/claude-sonnet-5` via the AI Gateway (already the scaffold default),
-appropriate for tool-calling analytical Q&A. Keep it; revisit only if needed.
+**Mistral**, via the Vercel AI Gateway using the plain `provider/model` string
+form: `mistral/mistral-large-latest` (capable at tool-calling and analytical
+Q&A). Set in `agent/agent.ts` (`model: "mistral/mistral-large-latest"`),
+replacing the scaffold's `anthropic/claude-sonnet-5`. Routing through the
+gateway means no Mistral API key is managed by hand; the gateway credential
+(`AI_GATEWAY_API_KEY` / Vercel OIDC) covers it. Easy to swap to
+`mistral/mistral-small-latest` for lower cost if the analytical quality holds.
 
 ## Channels
 
