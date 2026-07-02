@@ -31,18 +31,27 @@ One Next.js app, deployed as one Vercel project, hosts three things:
 3. **The eve agent** — mounted via `withEve()` in `next.config.ts`, same origin
    (no CORS, no URL env vars).
 
-The agent reaches the Finance API through an **eve OpenAPI connection**
-(`agent/connections/finance-api.ts`), which auto-generates one tool per
-operation. This showcases eve's OpenAPI connection feature and the "agent
-consumes its own API" pattern.
+The analytics logic (the SQL) lives once in a shared module,
+`agent/lib/finance.ts`. **Both** the Finance REST API route handlers **and** the
+agent's authored tools call into that shared module. The agent does not cross an
+HTTP boundary to reach its data: its tools query Postgres directly through the
+shared lib, which means the whole agent works under `eve dev --no-ui` (no need to
+run Next.js alongside it) and there is no base-URL env var to keep in sync. The
+REST API still exists as a real, documented surface for the portfolio.
 
 ```
 Browser (Web Chat + chart renderer)
    │  /eve/v1/*            (useEveAgent → eve channel)
    ▼
-eve agent  ──OpenAPI connection──►  /api/finance/*  ──►  Postgres (Neon)
-   │                                     ▲
-   └── instructions: behave as analyst   │ seeded with ~18 months synthetic data
+eve agent ── authored tools ──┐
+   │                          ▼
+   │                   agent/lib/finance.ts  ──►  Postgres (Neon)
+   │                          ▲
+app/api/finance/* ────────────┘   (REST API shares the same lib)
+   │
+   └── seeded with ~18 months synthetic data
+
+instructions: behave as a senior financial analyst
 ```
 
 ## Data layer
@@ -75,30 +84,34 @@ finance data from chat, which keeps the surface safe and the demo predictable).
 | `GET /api/finance/budget-status` | `month`                        | per-department `{ department, budget, actual, variance, pctUsed }` |
 | `GET /api/finance/anomalies`     | `from`, `to`, `threshold?` (stddev, default 2.5) | outlier transactions with the category baseline they deviate from |
 
-The API is documented by a **hand-authored OpenAPI 3.x spec** pinned in the repo
-(`app/api/finance/openapi.ts` or a `.json`), used both as the contract for the
-eve connection and as living documentation.
+Each route handler is a thin wrapper: parse/validate query params, call the
+matching function in `agent/lib/finance.ts`, return JSON.
 
-### Analytics logic
+### Analytics logic (shared lib: `agent/lib/finance.ts`)
 
-- **trend**: `SUM(amount)` grouped by month (`date_trunc`) and optionally
-  department, filtered by `type`.
-- **budget-status**: join `budgets` for the month against summed `transactions`
-  expenses per department; `variance = actual - budget`,
+The queries live here as typed functions, imported by both the REST routes and
+the agent tools:
+
+- **`getSummary({ from, to })`** → `SUM(amount)` split by `type` over the range.
+- **`getTrend({ metric, groupBy, from, to })`** → `SUM(amount)` grouped by month
+  (`date_trunc('month', date)`) and optionally department, filtered by `type`.
+- **`getBudgetStatus({ month })`** → join `budgets` for the month against summed
+  `transactions` expenses per department; `variance = actual - budget`,
   `pctUsed = actual / budget`.
-- **anomalies**: per category, compute mean and stddev of expense amounts over
-  the range; flag transactions whose amount exceeds `mean + threshold*stddev`.
+- **`getAnomalies({ from, to, threshold = 2.5 })`** → per category, compute mean
+  and stddev of expense amounts over the range; flag transactions whose amount
+  exceeds `mean + threshold*stddev`.
 
-## eve connection
+## Agent tools
 
-`agent/connections/finance-api.ts` — `defineOpenAPIConnection`:
-- `spec`: the pinned OpenAPI object/URL.
-- `baseUrl`: same-origin `/api/finance` (resolved at runtime).
-- No auth needed for the demo (public read-only API on the same deploy); if we
-  later lock it down, add `auth.getToken` or route it behind app auth.
+Authored tools under `agent/tools/`, one per analytic, each a thin
+`defineTool` wrapper over the shared lib with a Zod `inputSchema`:
 
-Generated tools: `finance-api__getSummary`, `finance-api__getTrend`,
-`finance-api__getBudgetStatus`, `finance-api__getAnomalies`.
+- `get_summary`, `get_trend`, `get_budget_status`, `get_anomalies`.
+
+They run in the eve app runtime with `process.env` access (the Postgres
+connection string), so they query the database directly through the shared lib.
+Read-only; no approval gates needed.
 
 ## Chart rendering in the web chat
 
@@ -106,11 +119,11 @@ The web chat renders `data.messages` parts from `useEveAgent`. Tool results
 arrive as `dynamic-tool` parts carrying the tool name and JSON output.
 
 A custom renderer inspects the tool name:
-- `finance-api__getTrend` → line/bar chart (Recharts) of the series.
-- `finance-api__getBudgetStatus` → grouped bar (budget vs actual) with an
-  over-budget highlight.
-- `finance-api__getAnomalies` → compact table/callout list.
-- `finance-api__getSummary` → KPI stat tiles (income / expense / net).
+- `get_trend` → line/bar chart (Recharts) of the series.
+- `get_budget_status` → grouped bar (budget vs actual) with an over-budget
+  highlight.
+- `get_anomalies` → compact table/callout list.
+- `get_summary` → KPI stat tiles (income / expense / net).
 
 Charts follow the `dataviz` design system (consistent palette, light/dark,
 accessible) so the whole UI reads as one polished product. The agent's text
@@ -165,8 +178,8 @@ script run once against the provisioned database.
 
 1. `npm run typecheck` passes.
 2. `eve dev --no-ui` starts; a session created over the HTTP API can ask
-   "revenue trend for the last 6 months" and the agent calls
-   `finance-api__getTrend` and returns a series.
+   "revenue trend for the last 6 months" and the agent calls `get_trend` and
+   returns a series.
 3. In the Web Chat, that same question renders an actual line chart plus a
    one-line interpretation.
 4. Budget and anomaly questions render their respective visualizations.
