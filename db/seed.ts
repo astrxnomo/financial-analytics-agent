@@ -7,7 +7,6 @@ if (!url) throw new Error("DATABASE_URL is not set (see .env.local).");
 const sql = postgres(url, { max: 1 });
 
 const rand = mulberry32(2026);
-const pick = <T>(xs: T[]) => xs[Math.floor(rand() * xs.length)];
 const jitter = (base: number, pct: number) => base * (1 + (rand() * 2 - 1) * pct);
 
 const departments = [
