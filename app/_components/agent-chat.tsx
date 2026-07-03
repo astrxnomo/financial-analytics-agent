@@ -1,6 +1,7 @@
 "use client";
 
 import type { Highlights } from "@/agent/lib/finance.types";
+import type { LanguageModelUsage } from "ai";
 import { useEveAgent } from "eve/react";
 import {
   AlertCircleIcon,
@@ -16,6 +17,16 @@ import {
   ConversationContent,
   ConversationScrollButton,
 } from "@/components/ai-elements/conversation";
+import {
+  Context,
+  ContextCacheUsage,
+  ContextContent,
+  ContextContentBody,
+  ContextContentHeader,
+  ContextInputUsage,
+  ContextOutputUsage,
+  ContextTrigger,
+} from "@/components/ai-elements/context";
 import {
   PromptInput,
   PromptInputActionMenu,
@@ -60,6 +71,12 @@ function apiEndpoints(h: Highlights): readonly { label: string; href: string }[]
   ];
 }
 
+// Mirrors agent/agent.ts's modelContextWindowTokens — eve doesn't expose the
+// server-side agent config to the client, so this has to be kept in sync by
+// hand (same constraint the agent.ts comment already calls out for that
+// value itself).
+const MODEL_CONTEXT_WINDOW_TOKENS = 128_000;
+
 export function AgentChat() {
   // eve retries a failed model call (e.g. provider rate limit) internally
   // and, if all retries are exhausted, emits `turn.failed` + `session.waiting`
@@ -68,12 +85,32 @@ export function AgentChat() {
   // never reaches the error banner below; this raw-event listener is the
   // only way to catch it and let the user know the turn didn't go through.
   const [turnWarning, setTurnWarning] = useState<string | undefined>(undefined);
+  // Usage from the most recently completed model call — the closest proxy
+  // available for "how full is the context window right now", since eve
+  // doesn't surface a running session-level token total.
+  const [latestUsage, setLatestUsage] = useState<LanguageModelUsage | undefined>(undefined);
   const agent = useEveAgent({
     onEvent: (event) => {
       if (event.type === "turn.failed") {
         setTurnWarning(event.data.message || "The request failed. Please try again.");
       } else if (event.type === "turn.started") {
         setTurnWarning(undefined);
+      } else if (event.type === "step.completed" && event.data.usage) {
+        const { inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens } = event.data.usage;
+        setLatestUsage({
+          inputTokenDetails: {
+            cacheReadTokens,
+            cacheWriteTokens,
+            noCacheTokens: undefined,
+          },
+          inputTokens,
+          outputTokenDetails: { reasoningTokens: undefined, textTokens: undefined },
+          outputTokens,
+          totalTokens:
+            inputTokens !== undefined && outputTokens !== undefined
+              ? inputTokens + outputTokens
+              : undefined,
+        });
       }
     },
   });
@@ -153,6 +190,23 @@ export function AgentChat() {
               </PromptInputActionMenuContent>
             </PromptInputActionMenu>
           ) : null}
+          {latestUsage ? (
+            <Context
+              maxTokens={MODEL_CONTEXT_WINDOW_TOKENS}
+              usage={latestUsage}
+              usedTokens={(latestUsage.inputTokens ?? 0) + (latestUsage.outputTokens ?? 0)}
+            >
+              <ContextTrigger className="h-8 gap-1 px-2 text-xs" size="sm" variant="ghost" />
+              <ContextContent>
+                <ContextContentHeader />
+                <ContextContentBody>
+                  <ContextInputUsage />
+                  <ContextOutputUsage />
+                  <ContextCacheUsage />
+                </ContextContentBody>
+              </ContextContent>
+            </Context>
+          ) : null}
         </PromptInputTools>
       </PromptInputFooter>
       <PromptInputSubmit onStop={agent.stop} status={agent.status} />
@@ -229,10 +283,13 @@ export function AgentChat() {
                     key={message.id}
                     message={message}
                     onInputResponses={(inputResponses) => agent.send({ inputResponses })}
+                    onRegenerate={
+                      !isBusy && index === agent.data.messages.length - 1 ? handleRetry : undefined
+                    }
                   />
                 ))}
                 {agent.status === "submitted" ? (
-                  <Shimmer as="p" className="text-sm">
+                  <Shimmer as="p" className="fade-in-0 animate-in text-sm duration-300">
                     Analyzing the ledger…
                   </Shimmer>
                 ) : null}
@@ -241,14 +298,15 @@ export function AgentChat() {
             </Conversation>
 
             {followups && followups.length > 0 ? (
-              <div className="mx-auto w-full max-w-4xl shrink-0 px-4 pb-3 sm:px-6">
+              <div className="fade-in-0 mx-auto w-full max-w-4xl shrink-0 animate-in px-4 pb-3 duration-300 ease-out sm:px-6">
                 <p className="mb-1.5 text-[11px] text-muted-foreground">Continue with</p>
                 <Suggestions className="items-center gap-1.5">
-                  {followups.map((question) => (
+                  {followups.map((question, index) => (
                     <Suggestion
-                      className="max-w-full border-border/70 bg-transparent text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                      className="fade-in-0 slide-in-from-bottom-1 max-w-full animate-in border-border/70 bg-transparent text-muted-foreground duration-300 ease-out hover:border-primary/40 hover:text-foreground"
                       key={question}
                       onSuggestionSelect={handleSuggestion}
+                      style={{ animationDelay: `${index * 60}ms`, animationFillMode: "backwards" }}
                       suggestion={question}
                     >
                       <span className="truncate">{question}</span>

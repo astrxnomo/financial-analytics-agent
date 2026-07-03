@@ -12,6 +12,7 @@ import {
   CopyIcon,
   ExternalLinkIcon,
   KeyRoundIcon,
+  RotateCcwIcon,
   WrenchIcon,
   XCircleIcon,
 } from "lucide-react";
@@ -33,7 +34,7 @@ import {
 } from "@/components/ai-elements/tool";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { isFinanceTool, ToolResult, ToolResultSkeleton } from "./tool-result";
+import { FinanceToolSlot, isFinanceTool } from "./tool-result";
 
 export type AgentInputResponse = {
   readonly optionId?: string;
@@ -46,11 +47,13 @@ export function AgentMessage({
   isStreaming,
   message,
   onInputResponses,
+  onRegenerate,
 }: {
   readonly canRespond: boolean;
   readonly isStreaming: boolean;
   readonly message: EveMessage;
   readonly onInputResponses: (responses: readonly AgentInputResponse[]) => void | Promise<void>;
+  readonly onRegenerate?: () => void;
 }) {
   const lastTextIndex = message.parts.reduce(
     (last, part, index) => (part.type === "text" ? index : last),
@@ -65,6 +68,7 @@ export function AgentMessage({
 
   return (
     <Message
+      className="fade-in-0 slide-in-from-bottom-2 animate-in duration-300 ease-out"
       data-optimistic={message.metadata?.optimistic ? "true" : undefined}
       from={message.role}
     >
@@ -82,9 +86,18 @@ export function AgentMessage({
       {showActions ? (
         <MessageActions className="opacity-0 transition-opacity group-hover:opacity-100">
           <CopyAction text={fullText} />
+          {onRegenerate ? <RegenerateAction onRegenerate={onRegenerate} /> : null}
         </MessageActions>
       ) : null}
     </Message>
+  );
+}
+
+function RegenerateAction({ onRegenerate }: { readonly onRegenerate: () => void }) {
+  return (
+    <MessageAction label="Regenerate response" onClick={onRegenerate} tooltip="Regenerate">
+      <RotateCcwIcon className="size-3.5" />
+    </MessageAction>
   );
 }
 
@@ -144,11 +157,9 @@ function AgentMessagePart({
 
       return (
         <>
-          {part.state === "output-available" && isFinanceTool(part.toolName) ? (
-            <ToolResult name={part.toolName} output={part.output} />
-          ) : null}
-          {part.state === "input-available" && isFinanceTool(part.toolName) ? (
-            <ToolResultSkeleton />
+          {isFinanceTool(part.toolName) &&
+          (part.state === "input-available" || part.state === "output-available") ? (
+            <FinanceToolSlot name={part.toolName} output={part.output} state={part.state} />
           ) : null}
           {isApprovalFlow ? (
             <Tool defaultOpen>

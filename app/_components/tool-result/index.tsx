@@ -1,5 +1,6 @@
 "use client";
 
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { memo } from "react";
 import type {
   Anomaly,
@@ -35,6 +36,51 @@ export function isFinanceTool(name: string): boolean {
 export function ToolResultSkeleton() {
   return (
     <div aria-hidden className="h-[280px] w-full animate-pulse rounded-xl border border-border/60 bg-card/40" />
+  );
+}
+
+// Crossfades the loading skeleton into the real chart/panel once the tool
+// call resolves. `layout` animates the height change between the fixed
+// 280px skeleton and the chart's natural height instead of letting it jump.
+export function FinanceToolSlot({
+  name,
+  output,
+  state,
+}: {
+  readonly name: string;
+  readonly output: unknown;
+  readonly state: "input-available" | "output-available";
+}) {
+  const shouldReduceMotion = useReducedMotion();
+
+  if (!isFinanceTool(name)) return null;
+
+  return (
+    <AnimatePresence initial={false} mode="popLayout">
+      {state === "output-available" ? (
+        <motion.div
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          initial={{ opacity: 0 }}
+          key="result"
+          layout
+          transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.22, ease: "easeOut" }}
+        >
+          <ToolResult name={name} output={output} />
+        </motion.div>
+      ) : (
+        <motion.div
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          initial={{ opacity: 0 }}
+          key="skeleton"
+          layout
+          transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.22, ease: "easeOut" }}
+        >
+          <ToolResultSkeleton />
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 

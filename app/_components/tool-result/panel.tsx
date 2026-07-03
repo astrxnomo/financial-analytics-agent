@@ -8,7 +8,9 @@ import type { ChartSize } from "./chart-tooltip";
 // Report-style panel so charts and tables read as documents, not floating
 // fragments.
 export function Panel({ children }: { readonly children: React.ReactNode }) {
-  return <div className="rounded-xl border border-border/60 bg-card/40 p-4">{children}</div>;
+  return (
+    <div className="rounded-xl border border-border/60 bg-card/40 p-4">{children}</div>
+  );
 }
 
 export function ChartHeader({

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { UIMessage } from "ai";
 import { ArrowDownIcon, DownloadIcon } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import type { ComponentProps } from "react";
 import { useCallback } from "react";
 import { StickToBottom, useStickToBottomContext } from "use-stick-to-bottom";
@@ -66,27 +67,35 @@ export const ConversationScrollButton = ({
   ...props
 }: ConversationScrollButtonProps) => {
   const { isAtBottom, scrollToBottom } = useStickToBottomContext();
+  const shouldReduceMotion = useReducedMotion();
 
   const handleScrollToBottom = useCallback(() => {
     scrollToBottom();
   }, [scrollToBottom]);
 
   return (
-    !isAtBottom && (
-      <Button
-        className={cn(
-          "absolute bottom-4 left-[50%] translate-x-[-50%] rounded-full dark:bg-background dark:hover:bg-muted",
-          className,
-        )}
-        onClick={handleScrollToBottom}
-        size="icon"
-        type="button"
-        variant="outline"
-        {...props}
-      >
-        <ArrowDownIcon className="size-4" />
-      </Button>
-    )
+    <AnimatePresence>
+      {!isAtBottom && (
+        <motion.div
+          animate={{ opacity: 1, scale: 1 }}
+          className="absolute bottom-4 left-[50%] translate-x-[-50%]"
+          exit={{ opacity: 0, scale: 0.85 }}
+          initial={{ opacity: 0, scale: 0.85 }}
+          transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.18, ease: "easeOut" }}
+        >
+          <Button
+            className={cn("rounded-full dark:bg-background dark:hover:bg-muted", className)}
+            onClick={handleScrollToBottom}
+            size="icon"
+            type="button"
+            variant="outline"
+            {...props}
+          >
+            <ArrowDownIcon className="size-4" />
+          </Button>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 };
 
