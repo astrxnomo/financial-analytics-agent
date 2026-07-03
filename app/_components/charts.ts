@@ -26,7 +26,6 @@ export const TOOLTIP_LABEL_STYLE = {
   fontWeight: 600,
   marginBottom: 4,
 };
-export const TOOLTIP_ITEM_STYLE = { color: "var(--popover-foreground)" };
 
 // Recharts' default bar-hover cursor is a light gray rect that clashes with
 // the dark theme; themed to a faint tint of the foreground instead.
