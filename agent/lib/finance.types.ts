@@ -20,4 +20,17 @@ export interface Highlights {
   latestMonth: string;
   topAnomaly?: { department: string; category: string; amount: number; date: string };
   mostOverBudgetDept?: { department: string; overMonths: number };
+  fastestGrowingCategory?: { category: string; multiple: number };
+}
+
+// Meta-stats about the dataset itself (row counts, coverage), as opposed to
+// the financial figures inside it — answers "how much data do we have"
+// questions distinctly from "what did we earn/spend" ones.
+export interface DataOverview {
+  dataFrom: string;
+  dataTo: string;
+  departments: number;
+  categories: { total: number; revenue: number; expense: number };
+  transactions: number;
+  budgets: number;
 }

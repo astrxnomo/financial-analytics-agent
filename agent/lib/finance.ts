@@ -2,11 +2,16 @@ import { db } from "./db";
 import { meanStdDev } from "./stats";
 import type {
   Summary, TrendPoint, BudgetRow, Anomaly, Metric, GroupBy, Highlights,
-  CategorySlice, CashflowPoint,
+  CategorySlice, CashflowPoint, DataOverview,
 } from "./finance.types";
 
 const num = (v: unknown) => Number(v);
 const day = (v: unknown) => (v instanceof Date ? v.toISOString().slice(0, 10) : String(v));
+const addMonths = (iso: string, months: number): string => {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCMonth(d.getUTCMonth() + months);
+  return day(d);
+};
 
 export async function getSummary(input: { from: string; to: string }): Promise<Summary> {
   const sql = db();
@@ -178,9 +183,36 @@ export async function getHighlights(): Promise<Highlights> {
     ORDER BY over_months DESC
     LIMIT 1`;
 
+  // Compare each revenue category's first 6 months of activity against its
+  // last 6 months, rather than a straight first-vs-last-year total — the
+  // seeded range doesn't start/end on year boundaries, so whole-year totals
+  // would compare uneven partial years. Whichever category compounded the
+  // most is the one worth pointing a "how has X grown" suggestion at.
+  const growthWindowStart = addMonths(dataFrom, 6);
+  const growthWindowEnd = addMonths(dataTo, -6);
+  const growthRows = await sql<{ category: string; first_total: string; last_total: string }[]>`
+    SELECT c.name AS category,
+           COALESCE(SUM(t.amount) FILTER (WHERE t.date < ${growthWindowStart}), 0) AS first_total,
+           COALESCE(SUM(t.amount) FILTER (WHERE t.date >= ${growthWindowEnd}), 0) AS last_total
+    FROM transactions t
+    JOIN categories c ON c.id = t.category_id
+    WHERE c.kind = 'revenue'
+    GROUP BY c.name`;
+  let fastestGrowingCategory: Highlights["fastestGrowingCategory"];
+  for (const r of growthRows) {
+    const first = num(r.first_total);
+    const last = num(r.last_total);
+    if (first <= 0) continue;
+    const multiple = last / first;
+    if (!fastestGrowingCategory || multiple > fastestGrowingCategory.multiple) {
+      fastestGrowingCategory = { category: r.category, multiple };
+    }
+  }
+
   return {
     dataFrom,
     dataTo,
+    fastestGrowingCategory,
     latestMonth,
     mostOverBudgetDept: overBudget
       ? { department: overBudget.department, overMonths: num(overBudget.over_months) }
@@ -193,5 +225,40 @@ export async function getHighlights(): Promise<Highlights> {
           department: topAnomaly.department,
         }
       : undefined,
+  };
+}
+
+export async function getDataOverview(): Promise<DataOverview> {
+  const sql = db();
+
+  const [range] = await sql<{ from: Date; to: Date }[]>`
+    SELECT MIN(date) AS from, MAX(date) AS to FROM transactions`;
+  if (!range) throw new Error("No seeded finance data found.");
+
+  const [counts] = await sql<
+    { departments: string; categories: string; revenue_categories: string; transactions: string; budgets: string }[]
+  >`
+    SELECT
+      (SELECT COUNT(*) FROM departments) AS departments,
+      (SELECT COUNT(*) FROM categories) AS categories,
+      (SELECT COUNT(*) FROM categories WHERE kind = 'revenue') AS revenue_categories,
+      (SELECT COUNT(*) FROM transactions) AS transactions,
+      (SELECT COUNT(*) FROM budgets) AS budgets`;
+  if (!counts) throw new Error("No seeded finance data found.");
+
+  const totalCategories = num(counts.categories);
+  const revenueCategories = num(counts.revenue_categories);
+
+  return {
+    budgets: num(counts.budgets),
+    categories: {
+      expense: totalCategories - revenueCategories,
+      revenue: revenueCategories,
+      total: totalCategories,
+    },
+    dataFrom: day(range.from),
+    dataTo: day(range.to),
+    departments: num(counts.departments),
+    transactions: num(counts.transactions),
   };
 }
