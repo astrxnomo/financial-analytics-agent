@@ -18,6 +18,7 @@ import {
 } from "@/components/ai-elements/tool";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { isFinanceTool, ToolResult } from "./tool-result";
 
 export type AgentInputResponse = {
   readonly optionId?: string;
@@ -92,25 +93,32 @@ function AgentMessagePart({
       return <AuthorizationPrompt part={part} />;
     case "dynamic-tool":
       return (
-        <Tool
-          defaultOpen={part.state === "approval-requested" || part.state === "approval-responded"}
-        >
-          <ToolHeader
-            state={part.state}
-            title={part.toolName}
-            toolName={part.toolName}
-            type="dynamic-tool"
-          />
-          <ToolContent>
-            <ToolInput input={part.input} />
-            <InputRequestActions
-              canRespond={canRespond}
-              part={part}
-              onInputResponses={onInputResponses}
+        <>
+          {part.state === "output-available" && isFinanceTool(part.toolName) ? (
+            <ToolResult name={part.toolName} output={part.output} />
+          ) : null}
+          <Tool
+            defaultOpen={
+              part.state === "approval-requested" || part.state === "approval-responded"
+            }
+          >
+            <ToolHeader
+              state={part.state}
+              title={part.toolName}
+              toolName={part.toolName}
+              type="dynamic-tool"
             />
-            <ToolOutput errorText={part.errorText} output={part.output} />
-          </ToolContent>
-        </Tool>
+            <ToolContent>
+              <ToolInput input={part.input} />
+              <InputRequestActions
+                canRespond={canRespond}
+                part={part}
+                onInputResponses={onInputResponses}
+              />
+              <ToolOutput errorText={part.errorText} output={part.output} />
+            </ToolContent>
+          </Tool>
+        </>
       );
   }
 }

@@ -50,6 +50,18 @@
   --input: oklch(0.916 0 0);
   --ring: oklch(0.708 0 0);
   --radius: 0.625rem;
+
+  /* Chart palette (dataviz skill reference instance, light mode). */
+  --chart-series-1: #2a78d6;
+  --chart-series-2: #1baf7a;
+  --chart-series-3: #eda100;
+  --chart-series-4: #008300;
+  --chart-series-5: #4a3aa7;
+  --chart-critical: #d03b3b;
+  --chart-good: #0ca30c;
+  --chart-grid: #e1e0d9;
+  --chart-axis: #c3c2b7;
+  --chart-muted: #898781;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -73,6 +85,18 @@
     --border: oklch(1 0 0 / 10%);
     --input: oklch(1 0 0 / 15%);
     --ring: oklch(0.556 0 0);
+
+    /* Chart palette (dataviz skill reference instance, dark mode). */
+    --chart-series-1: #3987e5;
+    --chart-series-2: #199e70;
+    --chart-series-3: #c98500;
+    --chart-series-4: #008300;
+    --chart-series-5: #9085e9;
+    --chart-critical: #e66767;
+    --chart-good: #0ca30c;
+    --chart-grid: #2c2c2a;
+    --chart-axis: #383835;
+    --chart-muted: #898781;
   }
 }
 

@@ -1,6 +1,6 @@
-import { db } from "./db.js";
-import { meanStdDev } from "./stats.js";
-import type { Summary, TrendPoint, BudgetRow, Anomaly, Metric, GroupBy } from "./finance.types.js";
+import { db } from "./db";
+import { meanStdDev } from "./stats";
+import type { Summary, TrendPoint, BudgetRow, Anomaly, Metric, GroupBy } from "./finance.types";
 
 const num = (v: unknown) => Number(v);
 const day = (v: unknown) => (v instanceof Date ? v.toISOString().slice(0, 10) : String(v));
