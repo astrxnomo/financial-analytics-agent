@@ -31,24 +31,26 @@
 
 :root {
   color-scheme: dark;
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+
+  /* Corporate navy dark theme. */
+  --background: oklch(0.145 0.015 258);
+  --foreground: oklch(0.93 0.008 255);
+  --card: oklch(0.185 0.018 258);
+  --card-foreground: oklch(0.93 0.008 255);
+  --popover: oklch(0.195 0.018 258);
+  --popover-foreground: oklch(0.93 0.008 255);
+  --primary: oklch(0.66 0.15 252);
+  --primary-foreground: oklch(0.13 0.02 258);
+  --secondary: oklch(0.24 0.022 258);
+  --secondary-foreground: oklch(0.93 0.008 255);
+  --muted: oklch(0.23 0.02 258);
+  --muted-foreground: oklch(0.67 0.018 254);
+  --accent: oklch(0.26 0.03 254);
+  --accent-foreground: oklch(0.95 0.01 255);
+  --destructive: oklch(0.7 0.19 22.2);
+  --border: oklch(0.93 0.03 252 / 10%);
+  --input: oklch(0.93 0.03 252 / 13%);
+  --ring: oklch(0.66 0.15 252 / 60%);
   --radius: 0.625rem;
 
   /* Chart palette (dataviz skill reference instance, dark mode). */
@@ -59,9 +61,9 @@
   --chart-series-5: #9085e9;
   --chart-critical: #e66767;
   --chart-good: #0ca30c;
-  --chart-grid: #2c2c2a;
-  --chart-axis: #383835;
-  --chart-muted: #898781;
+  --chart-grid: #252b38;
+  --chart-axis: #323a4a;
+  --chart-muted: #8a91a2;
 }
 
 * {
@@ -83,4 +85,14 @@ button,
 input,
 textarea {
   font: inherit;
+}
+
+::selection {
+  background: oklch(0.66 0.15 252 / 30%);
+}
+
+/* Thin, theme-matched scrollbars. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: oklch(0.93 0.03 252 / 15%) transparent;
 }

@@ -46,16 +46,23 @@ export function isFinanceTool(name: string): boolean {
 
 export function ToolResultSkeleton() {
   return (
-    <div aria-hidden className="h-[280px] w-full animate-pulse rounded-lg bg-muted/50" />
+    <div aria-hidden className="h-[280px] w-full animate-pulse rounded-xl border border-border/60 bg-card/40" />
   );
+}
+
+// Report-style panel so charts and tables read as documents, not floating
+// fragments.
+function Panel({ children }: { readonly children: React.ReactNode }) {
+  return <div className="rounded-xl border border-border/60 bg-card/40 p-4">{children}</div>;
 }
 
 export const ToolResult = memo(
   function ToolResult({ name, output }: { readonly name: string; readonly output: unknown }) {
-    if (name === "get_summary") return <SummaryTiles s={output as Summary} />;
-    if (name === "get_trend") return <TrendChart points={output as TrendPoint[]} />;
-    if (name === "get_budget_status") return <BudgetChart rows={output as BudgetRow[]} />;
-    if (name === "get_anomalies") return <AnomalyList rows={output as Anomaly[]} />;
+    if (name === "get_summary") return <Panel><SummaryTiles s={output as Summary} /></Panel>;
+    if (name === "get_trend") return <Panel><TrendChart points={output as TrendPoint[]} /></Panel>;
+    if (name === "get_budget_status")
+      return <Panel><BudgetChart rows={output as BudgetRow[]} /></Panel>;
+    if (name === "get_anomalies") return <Panel><AnomalyList rows={output as Anomaly[]} /></Panel>;
     return null;
   },
   (prev, next) => prev.name === next.name && prev.output === next.output,
@@ -102,7 +109,7 @@ function SummaryTiles({ s }: { readonly s: Summary }) {
       <ChartHeader caption={`${fmtDate(s.from)} – ${fmtDate(s.to)}`} title="Summary" />
       <div className="flex flex-wrap gap-3">
         {tiles.map((t) => (
-          <div className="min-w-36 rounded-lg border px-4 py-3" key={t.label}>
+          <div className="min-w-36 flex-1 rounded-lg bg-muted/40 px-4 py-3" key={t.label}>
             <div className="text-muted-foreground text-xs">{t.label}</div>
             <div
               className="flex items-center gap-1 font-semibold text-xl tabular-nums"
@@ -139,7 +146,7 @@ function TrendChart({ points }: { readonly points: TrendPoint[] }) {
       return (
         <div>
           <ChartHeader caption={caption} title="Amount" />
-          <div className="w-fit min-w-36 rounded-lg border px-4 py-3">
+          <div className="w-fit min-w-36 rounded-lg bg-muted/40 px-4 py-3">
             <div className="font-semibold text-2xl tabular-nums">
               {fmtMoney(points[0]?.value ?? 0)}
             </div>
@@ -374,9 +381,9 @@ function AnomalyList({ rows }: { readonly rows: Anomaly[] }) {
         caption={monthRange(rows.map((r) => r.date))}
         title={`${rows.length} unusual ${rows.length === 1 ? "transaction" : "transactions"}`}
       />
-      <div className="overflow-x-auto rounded-lg border">
+      <div className="overflow-x-auto rounded-lg border border-border/60">
         <table className="w-full min-w-[560px] text-sm">
-          <thead>
+          <thead className="bg-muted/30">
             <tr>
               {["Date", "Department", "Category", "Amount", "Category avg", "Deviation"].map(
                 (h) => (
@@ -392,7 +399,7 @@ function AnomalyList({ rows }: { readonly rows: Anomaly[] }) {
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.id}>
+              <tr className="transition-colors hover:bg-muted/20" key={r.id}>
                 <td className="px-3 py-2">{fmtDate(r.date)}</td>
                 <td className="px-3 py-2">{r.department}</td>
                 <td className="px-3 py-2">{r.category}</td>

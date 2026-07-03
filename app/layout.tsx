@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import type { ReactNode } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -20,8 +20,13 @@ const mono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "financial-analytics-agent",
-  description: "A Next.js starter for eve agents with AI Elements.",
+  title: "Financial Analytics Agent",
+  description:
+    "Enterprise financial analytics agent: revenue trends, budget performance, and anomaly detection, answered as charts.",
+};
+
+export const viewport: Viewport = {
+  themeColor: "#12141c",
 };
 
 export default function RootLayout({ children }: { readonly children: ReactNode }) {

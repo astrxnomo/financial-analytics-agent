@@ -8,12 +8,21 @@ import type {
 } from "eve/react";
 import {
   CheckCircleIcon,
+  CheckIcon,
+  CopyIcon,
   ExternalLinkIcon,
   KeyRoundIcon,
   WrenchIcon,
   XCircleIcon,
 } from "lucide-react";
-import { Message, MessageContent, MessageResponse } from "@/components/ai-elements/message";
+import { useState } from "react";
+import {
+  Message,
+  MessageAction,
+  MessageActions,
+  MessageContent,
+  MessageResponse,
+} from "@/components/ai-elements/message";
 import { Reasoning, ReasoningContent, ReasoningTrigger } from "@/components/ai-elements/reasoning";
 import {
   Tool,
@@ -47,6 +56,12 @@ export function AgentMessage({
     (last, part, index) => (part.type === "text" ? index : last),
     -1,
   );
+  const fullText = message.parts
+    .filter((part) => part.type === "text")
+    .map((part) => part.text)
+    .join("\n\n")
+    .trim();
+  const showActions = message.role === "assistant" && !isStreaming && fullText.length > 0;
 
   return (
     <Message
@@ -64,7 +79,31 @@ export function AgentMessage({
           />
         ))}
       </MessageContent>
+      {showActions ? (
+        <MessageActions className="opacity-0 transition-opacity group-hover:opacity-100">
+          <CopyAction text={fullText} />
+        </MessageActions>
+      ) : null}
     </Message>
+  );
+}
+
+function CopyAction({ text }: { readonly text: string }) {
+  const [copied, setCopied] = useState(false);
+
+  return (
+    <MessageAction
+      label="Copy response"
+      onClick={() => {
+        void navigator.clipboard.writeText(text).then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        });
+      }}
+      tooltip={copied ? "Copied" : "Copy"}
+    >
+      {copied ? <CheckIcon className="size-3.5" /> : <CopyIcon className="size-3.5" />}
+    </MessageAction>
   );
 }
 
@@ -89,8 +128,9 @@ function AgentMessagePart({
         </MessageResponse>
       );
     case "reasoning":
+      // Open while the model is thinking, tucked away once the answer lands.
       return (
-        <Reasoning defaultOpen isStreaming={part.state === "streaming"}>
+        <Reasoning defaultOpen={part.state === "streaming"} isStreaming={part.state === "streaming"}>
           <ReasoningTrigger />
           <ReasoningContent>{part.text}</ReasoningContent>
         </Reasoning>
