@@ -43,7 +43,7 @@ const deptExpenseCats: Record<number, number[]> = {
   5: [3, 4, 7],
 };
 
-const MONTHS = 18;
+const MONTHS = 36; // 3 full years so multi-year seasonality and YoY growth read clearly
 const now = new Date(Date.UTC(2026, 5, 1)); // June 2026 as the latest full-ish month
 const firstMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (MONTHS - 1), 1));
 
@@ -99,8 +99,9 @@ for (let m = 0; m < MONTHS; m++) {
   // Revenue: Sales(1) and Services via Engineering(3)/Ops(4)
   const revenueBase = 220000 * seasonal * growth;
   // Subscriptions compound faster than the rest of the business and take a
-  // visible churn hit partway through — a story get_trend can surface.
-  const subscriptionBase = 42000 * 1.045 ** m * (m === 10 ? 0.72 : 1);
+  // recurring churn hit roughly once a year — a story get_trend can surface
+  // across multiple cycles, not just once.
+  const subscriptionBase = 42000 * 1.045 ** m * (m % 14 === 10 ? 0.72 : 1);
   const revSplits: Array<[number, number, number]> = [
     [1, 1, revenueBase * 0.6], // Sales, Product Revenue
     [1, 2, revenueBase * 0.25], // Sales, Services Revenue
@@ -123,32 +124,38 @@ for (let m = 0; m < MONTHS; m++) {
     for (const cat of cats) {
       const share = cat === 3 ? 0.55 : 0.45 / (cats.length - 1); // payroll dominates
       const planned = jitter(base * share, 0.12);
-      // Deliberate outliers: Marketing Advertising spikes twice.
-      const spike = dept.id === 2 && cat === 5 && (m === 6 || m === 13) ? 3.2 : 1;
+      // Deliberate outliers: Marketing Advertising spikes on a recurring
+      // ~8-month campaign cadence, not just once — enough repeats across 3
+      // years for anomaly detection to have a real pattern to describe.
+      const spike = dept.id === 2 && cat === 5 && m % 8 === 6 ? 3.2 : 1;
       pushExpense(m, dept.id, cat, planned * spike);
       addPlanned(m, dept.id, planned);
     }
   }
 
   // Cloud Infrastructure (Engineering): step change after a platform
-  // migration at month 9, plus one incident month with runaway autoscaling.
+  // migration at month 9, plus two incident months (autoscaling runaway,
+  // then a later data-transfer bill) roughly a year apart.
   {
     const step = m >= 9 ? 1.6 : 1;
-    const incident = m === 15 ? 2.4 : 1;
+    const incident = m === 15 ? 2.4 : m === 27 ? 2.0 : 1;
     const planned = jitter(16000 * growth * step, 0.1);
     pushExpense(
       m, 3, 9, planned * incident,
       m === 15
         ? `Cloud Infrastructure — Engineering ${monthName} (autoscaling incident)`
-        : undefined,
+        : m === 27
+          ? `Cloud Infrastructure — Engineering ${monthName} (data transfer overage)`
+          : undefined,
     );
     addPlanned(m, 3, planned);
   }
 
-  // Contractors (Engineering + Operations): a project ramp that rises,
-  // peaks around month 7, and winds down — a bell curve, not a line.
+  // Contractors (Engineering + Operations): two project ramps across the
+  // 3-year window, each rising to a peak and winding down — bell curves,
+  // not a flat line.
   {
-    const bell = Math.exp(-((m - 7) ** 2) / 8);
+    const bell = Math.exp(-((m - 7) ** 2) / 8) + Math.exp(-((m - 24) ** 2) / 10);
     const engAmount = jitter(4000 + 26000 * bell, 0.15);
     const opsAmount = jitter(2500 + 12000 * bell, 0.15);
     pushExpense(m, 3, 10, engAmount);
@@ -157,14 +164,32 @@ for (let m = 0; m < MONTHS; m++) {
     addPlanned(m, 4, opsAmount);
   }
 
-  // Recruiting (Sales + Engineering): sporadic by nature, with a visible
-  // hiring push in months 12-14.
+  // Recruiting (Sales + Engineering): sporadic by nature, with visible
+  // hiring pushes around months 12-14 and again 24-26 (a second growth
+  // round a year later).
   for (const dept of [1, 3]) {
-    const push = m >= 12 && m <= 14;
+    const push = (m >= 12 && m <= 14) || (m >= 24 && m <= 26);
     if (!push && rand() > 0.45) continue;
     const amount = jitter(push ? 9000 : 3500, 0.35);
     pushExpense(m, dept, 11, amount);
     addPlanned(m, dept, amount);
+  }
+
+  // Office (Operations): a one-time office relocation in month 20 — an
+  // outlier outside Marketing/Engineering so anomaly detection doesn't
+  // always point at the same two departments.
+  if (m === 20) {
+    const amount = jitter(38000, 0.05);
+    pushExpense(m, 4, 7, amount, `Office — Operations ${monthName} (office relocation)`);
+    addPlanned(m, 4, amount);
+  }
+
+  // Travel (Sales): a one-time industry-conference push in month 9 — spreads
+  // outlier variety across a third category.
+  if (m === 9) {
+    const amount = jitter(21000, 0.05);
+    pushExpense(m, 1, 6, amount, `Travel — Sales ${monthName} (industry conference)`);
+    addPlanned(m, 1, amount);
   }
 
   // Budget = planned spend with a jittered cushion, so surprises (ad spikes,
