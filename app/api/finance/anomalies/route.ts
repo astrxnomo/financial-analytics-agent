@@ -6,6 +6,14 @@ const Q = z.object({
   from: z.string(),
   to: z.string(),
   threshold: z.coerce.number().min(1).max(6).optional(),
+  departments: z
+    .string()
+    .optional()
+    .transform((s) => s?.split(",").map((d) => d.trim()).filter(Boolean)),
+  categories: z
+    .string()
+    .optional()
+    .transform((s) => s?.split(",").map((c) => c.trim()).filter(Boolean)),
 });
 
 export async function GET(req: Request) {

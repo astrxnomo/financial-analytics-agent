@@ -4,6 +4,7 @@ import type {
   Summary, TrendPoint, BudgetRow, Anomaly, Metric, GroupBy, Highlights,
   CategorySlice, CashflowPoint, DataOverview,
 } from "./finance.types";
+export { CATEGORY_BREAKDOWN_TOP_N } from "./finance.types";
 
 const num = (v: unknown) => Number(v);
 const day = (v: unknown) => (v instanceof Date ? v.toISOString().slice(0, 10) : String(v));
@@ -26,30 +27,34 @@ export async function getSummary(input: { from: string; to: string }): Promise<S
 }
 
 export async function getTrend(input: {
-  metric: Metric; groupBy: GroupBy; from: string; to: string;
+  metric: Metric; groupBy: GroupBy; from: string; to: string; departments?: string[];
 }): Promise<TrendPoint[]> {
   const sql = db();
+  const deptFilter = input.departments?.length ? sql`AND d.name IN ${sql(input.departments)}` : sql``;
   if (input.groupBy === "department") {
     const rows = await sql<{ period: Date; department: string; value: string }[]>`
       SELECT date_trunc('month', t.date)::date AS period, d.name AS department,
              COALESCE(SUM(t.amount), 0) AS value
       FROM transactions t JOIN departments d ON d.id = t.department_id
       WHERE t.type = ${input.metric} AND t.date >= ${input.from} AND t.date <= ${input.to}
+        ${deptFilter}
       GROUP BY period, d.name
       ORDER BY period, d.name`;
     return rows.map((r) => ({ period: day(r.period), department: r.department, value: num(r.value) }));
   }
   const rows = await sql<{ period: Date; value: string }[]>`
-    SELECT date_trunc('month', date)::date AS period, COALESCE(SUM(amount), 0) AS value
-    FROM transactions
-    WHERE type = ${input.metric} AND date >= ${input.from} AND date <= ${input.to}
+    SELECT date_trunc('month', t.date)::date AS period, COALESCE(SUM(t.amount), 0) AS value
+    FROM transactions t
+    JOIN departments d ON d.id = t.department_id
+    WHERE t.type = ${input.metric} AND t.date >= ${input.from} AND t.date <= ${input.to}
+      ${deptFilter}
     GROUP BY period
     ORDER BY period`;
   return rows.map((r) => ({ period: day(r.period), value: num(r.value) }));
 }
 
 export async function getCategoryBreakdown(input: {
-  from: string; to: string; metric?: Metric; department?: string;
+  from: string; to: string; metric?: Metric; department?: string; category?: string;
 }): Promise<CategorySlice[]> {
   const sql = db();
   const metric = input.metric ?? "expense";
@@ -61,6 +66,7 @@ export async function getCategoryBreakdown(input: {
     JOIN departments d ON d.id = t.department_id
     WHERE t.type = ${metric} AND t.date >= ${input.from} AND t.date <= ${input.to}
       AND (${input.department ?? null}::text IS NULL OR d.name = ${input.department ?? null})
+      AND (${input.category ?? null}::text IS NULL OR c.name = ${input.category ?? null})
     GROUP BY period, c.name
     ORDER BY period, c.name`;
   return rows.map((r) => ({ period: day(r.period), category: r.category, value: num(r.value) }));
@@ -86,8 +92,9 @@ export async function getCashflow(input: { from: string; to: string }): Promise<
   });
 }
 
-export async function getBudgetStatus(input: { month: string }): Promise<BudgetRow[]> {
+export async function getBudgetStatus(input: { month: string; departments?: string[] }): Promise<BudgetRow[]> {
   const sql = db();
+  const deptFilter = input.departments?.length ? sql`AND d.name IN ${sql(input.departments)}` : sql``;
   const rows = await sql<{ department: string; budget: string; actual: string }[]>`
     SELECT d.name AS department,
            COALESCE(b.amount, 0) AS budget,
@@ -96,6 +103,7 @@ export async function getBudgetStatus(input: { month: string }): Promise<BudgetR
     LEFT JOIN budgets b ON b.department_id = d.id AND b.month = date_trunc('month', ${input.month}::date)
     LEFT JOIN transactions t ON t.department_id = d.id
          AND date_trunc('month', t.date) = date_trunc('month', ${input.month}::date)
+    WHERE true ${deptFilter}
     GROUP BY d.name, b.amount
     ORDER BY d.name`;
   return rows.map((r) => {
@@ -110,7 +118,7 @@ export async function getBudgetStatus(input: { month: string }): Promise<BudgetR
 }
 
 export async function getAnomalies(input: {
-  from: string; to: string; threshold?: number;
+  from: string; to: string; threshold?: number; departments?: string[]; categories?: string[];
 }): Promise<Anomaly[]> {
   const sql = db();
   const threshold = input.threshold ?? 2.5;
@@ -144,7 +152,17 @@ export async function getAnomalies(input: {
       }
     }
   }
-  return out.sort((a, b) => b.amount - a.amount);
+  // Statistical baseline (mean/stddev per category) is always computed from
+  // the full unfiltered dataset above, then narrowed here — filtering the
+  // source rows first would shrink the sample and change what counts as
+  // "unusual" depending on which departments/categories happen to be asked
+  // about, rather than just narrowing which already-computed outliers to show.
+  const deptSet = input.departments?.length ? new Set(input.departments) : null;
+  const catSet = input.categories?.length ? new Set(input.categories) : null;
+  const filtered = out.filter(
+    (a) => (!deptSet || deptSet.has(a.department)) && (!catSet || catSet.has(a.category)),
+  );
+  return filtered.sort((a, b) => b.amount - a.amount);
 }
 
 export async function getHighlights(): Promise<Highlights> {

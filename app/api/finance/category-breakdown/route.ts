@@ -5,6 +5,7 @@ import { getCategoryBreakdown } from "@/agent/lib/finance";
 const Q = z.object({
   metric: z.enum(["income", "expense"]).default("expense"),
   department: z.string().optional(),
+  category: z.string().optional(),
   from: z.string(),
   to: z.string(),
 });

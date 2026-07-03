@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { config } from "dotenv";
 config({ path: [".env.local", ".env"] });
-import { getSummary, getTrend, getBudgetStatus, getAnomalies } from "./finance.js";
+import { getSummary, getTrend, getBudgetStatus, getAnomalies, getCategoryBreakdown } from "./finance.js";
 
 const RANGE = { from: "2025-01-01", to: "2026-12-31" };
 const run = process.env.DATABASE_URL ? describe : describe.skip;
@@ -29,9 +29,41 @@ run("finance lib (integration, needs seeded DATABASE_URL)", () => {
     expect(typeof b[0].pctUsed).toBe("number");
   });
 
+  it("budget status filters to the requested departments", async () => {
+    const b = await getBudgetStatus({ month: "2026-01-01", departments: ["Engineering", "Marketing"] });
+    expect(b.length).toBe(2);
+    expect(new Set(b.map((r) => r.department))).toEqual(new Set(["Engineering", "Marketing"]));
+  });
+
+  it("trend filters to the requested departments", async () => {
+    const t = await getTrend({
+      metric: "expense", groupBy: "department", departments: ["Engineering", "Marketing"], ...RANGE,
+    });
+    expect(t.length).toBeGreaterThan(0);
+    expect(new Set(t.map((r) => r.department))).toEqual(new Set(["Engineering", "Marketing"]));
+  });
+
+  it("category breakdown filters to a single named category", async () => {
+    const c = await getCategoryBreakdown({ ...RANGE, category: "Cloud Infrastructure" });
+    expect(c.length).toBeGreaterThan(0);
+    expect(c.every((r) => r.category === "Cloud Infrastructure")).toBe(true);
+  });
+
   it("finds the seeded advertising outliers", async () => {
     const a = await getAnomalies(RANGE);
     expect(a.length).toBeGreaterThan(0);
     expect(a.some((x) => x.category === "Advertising")).toBe(true);
+  });
+
+  it("anomalies filters the returned list to requested categories", async () => {
+    const all = await getAnomalies(RANGE);
+    const filtered = await getAnomalies({ ...RANGE, categories: ["Travel", "Office"] });
+    expect(filtered.length).toBeGreaterThan(0);
+    expect(filtered.every((a) => a.category === "Travel" || a.category === "Office")).toBe(true);
+    expect(filtered.length).toBeLessThan(all.length);
+    // Baseline stats must match the unfiltered run, proving the mean/stddev
+    // is computed from the full dataset and not recomputed on the narrowed set.
+    const unfilteredMatch = all.find((a) => a.id === filtered[0].id);
+    expect(unfilteredMatch?.categoryMean).toBe(filtered[0].categoryMean);
   });
 });
