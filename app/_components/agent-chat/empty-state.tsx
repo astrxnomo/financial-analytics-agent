@@ -1,8 +1,40 @@
 "use client";
 
 import type { Highlights } from "@/agent/lib/finance.types";
-import { ChevronRightIcon } from "lucide-react";
-import { fmtMoneyShort, fmtMonthShort, QUESTION_TOPICS } from "./use-finance-highlights";
+import {
+  AlertTriangleIcon,
+  Building2Icon,
+  type LucideIcon,
+  PieChartIcon,
+  ReceiptTextIcon,
+  RocketIcon,
+  TrendingUpIcon,
+  WalletIcon,
+  WavesIcon,
+} from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  fmtMoneyShort,
+  fmtMonthShort,
+  QUESTION_TOPICS,
+} from "./use-finance-highlights";
+
+// Index-aligned with QUESTION_TOPICS (see use-finance-highlights.ts) — one
+// icon per suggested-query card.
+const QUESTION_ICONS: readonly LucideIcon[] = [
+  TrendingUpIcon,
+  WalletIcon,
+  AlertTriangleIcon,
+  ReceiptTextIcon,
+  WavesIcon,
+  PieChartIcon,
+  Building2Icon,
+  RocketIcon,
+];
 
 function timeGreeting(): string {
   const hour = new Date().getHours();
@@ -31,17 +63,21 @@ export function ChatEmptyState({
   readonly questions: readonly string[];
 }) {
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto">
-      <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col justify-center gap-7 px-4 py-10 sm:px-6">
-        <div className="space-y-1">
+    <div className="flex min-h-0 flex-1 flex-col justify-center overflow-hidden">
+      <div className="mx-auto flex w-full max-w-3xl shrink-0 flex-col gap-4 px-4 sm:px-6">
+        <div className="space-y-0.5">
           <p className="text-muted-foreground text-xs" suppressHydrationWarning>
             {fmtToday()}
           </p>
-          <h1 className="font-semibold text-xl tracking-tight" suppressHydrationWarning>
+          <h1
+            className="font-semibold text-xl tracking-tight"
+            suppressHydrationWarning
+          >
             {timeGreeting()}
           </h1>
           <p className="text-muted-foreground text-sm">
-            Query revenue, budget performance, and spending anomalies across departments.
+            Query revenue, budget performance, and spending anomalies across
+            departments.
           </p>
         </div>
 
@@ -56,30 +92,38 @@ export function ChatEmptyState({
         )}
 
         {composer}
+      </div>
 
-        <div>
-          <p className="mb-2 text-muted-foreground text-xs">Suggested queries</p>
-          <div className="overflow-hidden rounded-xl border border-border/60">
-            <ul className="divide-y divide-border/60">
-              {questions.map((question, index) => (
-                <li key={question}>
+      <div className="mx-auto flex min-h-0 w-full max-w-3xl shrink flex-col gap-2 px-4 pt-4 pb-3 sm:px-6">
+        <p className="shrink-0 text-muted-foreground text-xs">
+          Suggested prompts
+        </p>
+        <div className="grid grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-4">
+          {questions.map((question, index) => {
+            const Icon =
+              QUESTION_ICONS[index % QUESTION_ICONS.length] ?? WalletIcon;
+            const topic = QUESTION_TOPICS[index % QUESTION_TOPICS.length];
+            return (
+              <Tooltip delayDuration={150} key={question}>
+                <TooltipTrigger asChild>
                   <button
-                    className="group flex w-full items-center gap-4 px-4 py-3 text-left text-sm transition-colors hover:bg-muted/30"
+                    className="group flex flex-col items-center gap-1.5 rounded-xl border border-border/60 bg-card/40 px-3 py-4 text-center transition-colors hover:border-primary/40 hover:bg-card"
                     onClick={() => onSuggestionSelect(question)}
                     type="button"
                   >
-                    <span className="w-20 shrink-0 text-muted-foreground text-xs">
-                      {QUESTION_TOPICS[index % QUESTION_TOPICS.length]}
-                    </span>
-                    <span className="min-w-0 flex-1 text-muted-foreground transition-colors group-hover:text-foreground">
-                      {question}
-                    </span>
-                    <ChevronRightIcon className="size-3.5 shrink-0 text-muted-foreground/50 opacity-0 transition-opacity group-hover:opacity-100" />
+                    <Icon className="size-5 text-muted-foreground transition-colors group-hover:text-primary" />
+                    <span className="text-xs">{topic}</span>
                   </button>
-                </li>
-              ))}
-            </ul>
-          </div>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-64 space-y-1 py-2 shadow-xl" side="top" sideOffset={8}>
+                  <p className="font-semibold text-[11px] text-primary uppercase tracking-wide">
+                    {topic}
+                  </p>
+                  <p className="text-[13px] leading-snug">{question}</p>
+                </TooltipContent>
+              </Tooltip>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -160,8 +204,12 @@ function Briefing({
             type="button"
           >
             <p className="text-[11px] text-muted-foreground">{tile.label}</p>
-            <p className="mt-1 truncate font-medium text-sm tabular-nums">{tile.value}</p>
-            <p className="mt-0.5 truncate text-muted-foreground text-xs">{tile.detail}</p>
+            <p className="mt-1 truncate font-medium text-sm tabular-nums">
+              {tile.value}
+            </p>
+            <p className="mt-0.5 truncate text-muted-foreground text-xs">
+              {tile.detail}
+            </p>
           </button>
         );
       })}
