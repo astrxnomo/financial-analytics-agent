@@ -6,6 +6,9 @@ export const SERIES = [
   "var(--chart-series-3)",
   "var(--chart-series-4)",
   "var(--chart-series-5)",
+  "var(--chart-series-6)",
+  "var(--chart-series-7)",
+  "var(--chart-series-8)",
 ];
 export const CRITICAL = "var(--chart-critical)";
 export const GOOD = "var(--chart-good)";

@@ -56,13 +56,15 @@ export const ToolResult = memo(
         />
       );
     if (name === "get_anomalies") return <Panel><AnomalyList rows={output as Anomaly[]} /></Panel>;
-    if (name === "get_category_breakdown")
+    if (name === "get_category_breakdown") {
+      const { slices } = output as { slices: CategorySlice[]; otherCategories: string[] };
       return (
         <ChartPanel
-          render={(size, action) => <CategoryBreakdownChart action={action} size={size} slices={output as CategorySlice[]} />}
+          render={(size, action) => <CategoryBreakdownChart action={action} size={size} slices={slices} />}
           title="Category breakdown"
         />
       );
+    }
     if (name === "get_cashflow")
       return (
         <ChartPanel

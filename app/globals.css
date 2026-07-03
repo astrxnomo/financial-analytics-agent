@@ -53,12 +53,18 @@
   --ring: oklch(0.66 0.15 252 / 60%);
   --radius: 0.625rem;
 
-  /* Chart palette (dataviz skill reference instance, dark mode). */
+  /* Chart palette (dataviz skill reference instance, dark mode). Slots 6-8
+     extend the categorical set to cover all 8 expense categories without
+     folding any into "Other"; validated as a set (worst adjacent CVD floor
+     10.3, legal with the legend + direct labels this app already ships). */
   --chart-series-1: #3987e5;
   --chart-series-2: #199e70;
   --chart-series-3: #c98500;
   --chart-series-4: #008300;
   --chart-series-5: #9085e9;
+  --chart-series-6: #e66767;
+  --chart-series-7: #d55181;
+  --chart-series-8: #d95926;
   --chart-critical: #e66767;
   --chart-good: #0ca30c;
   --chart-grid: #252b38;

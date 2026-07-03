@@ -13,13 +13,13 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { CategorySlice } from "@/agent/lib/finance.types";
+import { CATEGORY_BREAKDOWN_TOP_N, type CategorySlice } from "@/agent/lib/finance.types";
 import { AXIS, fmtDate, fmtMoney, GRID, monthRange, MUTED, SERIES } from "../charts";
 import { ChartTooltip, type ChartSize } from "./chart-tooltip";
 import { ChartHeader, EmptyState } from "./panel";
 
 const OTHER_COLOR = "var(--chart-muted)";
-const MAX_STACK_CATEGORIES = 5;
+const MAX_STACK_CATEGORIES = CATEGORY_BREAKDOWN_TOP_N;
 
 // Stacked area of monthly totals per category; a single month renders as a
 // donut instead (no time axis to stack along).
