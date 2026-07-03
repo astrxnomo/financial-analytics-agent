@@ -16,7 +16,8 @@
     "typecheck": "tsc",
     "db:migrate": "tsx db/migrate.ts",
     "db:seed": "tsx db/seed.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "eval": "eve eval"
   },
   "dependencies": {
     "@ai-sdk/mistral": "^4.0.5",
