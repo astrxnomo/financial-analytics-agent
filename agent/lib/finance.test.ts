@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import "dotenv/config";
+import { config } from "dotenv";
+config({ path: [".env.local", ".env"] });
 import { getSummary, getTrend, getBudgetStatus, getAnomalies } from "./finance.js";
 
 const RANGE = { from: "2025-01-01", to: "2026-12-31" };

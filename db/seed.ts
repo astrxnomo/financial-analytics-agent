@@ -1,4 +1,5 @@
-import "dotenv/config";
+import { config } from "dotenv";
+config({ path: [".env.local", ".env"] });
 import postgres from "postgres";
 import { mulberry32 } from "../agent/lib/rng.js";
 
