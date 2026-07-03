@@ -19,7 +19,13 @@ import { Button } from "@/components/ui/button";
 import { AgentMessage } from "./agent-message";
 import { ChatEmptyState } from "./agent-chat/empty-state";
 import { ChatHeader } from "./agent-chat/nav";
-import { lastFinanceTool, lastUserText, QUESTION_INDEX_BY_TOOL, sentQuestions } from "./agent-chat/session-helpers";
+import {
+  contextualFollowups,
+  lastFinanceTool,
+  lastUserText,
+  QUESTION_INDEX_BY_TOOL,
+  sentQuestions,
+} from "./agent-chat/session-helpers";
 import { useFinanceHighlights } from "./agent-chat/use-finance-highlights";
 
 export function AgentChat() {
@@ -27,15 +33,21 @@ export function AgentChat() {
   const isBusy = agent.status === "submitted" || agent.status === "streaming";
   const isEmpty = agent.data.messages.length === 0;
   const { highlights, questions } = useFinanceHighlights();
-  const followupTool = isBusy ? undefined : lastFinanceTool(agent.data.messages.at(-1));
+  const lastMessage = agent.data.messages.at(-1);
+  const followupTool = isBusy ? undefined : lastFinanceTool(lastMessage);
   const asked = sentQuestions(agent.data.messages);
+  // Thread-specific follow-ups (same department/category as the answer just
+  // given) come first; the generic pool only fills remaining slots, so a
+  // targeted question never gets pushed out by an unrelated static one.
+  const threaded = isBusy ? [] : contextualFollowups(lastMessage).filter((q) => !asked.has(q));
   const followups =
     followupTool !== undefined
-      ? questions
-          .filter(
+      ? [
+          ...threaded,
+          ...questions.filter(
             (question, i) => i !== QUESTION_INDEX_BY_TOOL[followupTool] && !asked.has(question),
-          )
-          .slice(0, 3)
+          ),
+        ].slice(0, 3)
       : undefined;
 
   const handleSubmit = async (message: PromptInputMessage) => {

@@ -20,13 +20,13 @@ export const QUESTION_TOPICS = [
 // generic but always answerable.
 const FALLBACK_QUESTIONS = [
   "Show me the revenue trend for the last 6 months.",
-  "Which departments are over budget this month?",
-  "Any unusual expenses in the last year?",
+  "Which department is closest to going over budget, and how does it compare to Finance?",
+  "Any unusual expenses in the last year, and are they likely to recur?",
   "What were total income and expenses this year?",
   "How is our cash flow trending?",
-  "What do we spend the most on?",
-  "Compare Engineering and Sales spending over the last 2 years.",
-  "Which revenue category has grown the fastest?",
+  "Break down every expense category for the last year — what's driving the total?",
+  "Compare monthly expenses across all departments — which one is the biggest driver?",
+  "Which revenue category has grown the fastest, and where is it headed next quarter?",
 ];
 
 // timeZone: "UTC" — seed dates are date-only ISO strings; parsing them as UTC
@@ -49,6 +49,12 @@ export const fmtMoneyShort = (n: number) =>
     maximumFractionDigits: 0,
   }).format(n);
 
+// Fixed department roster (see AGENTS.md: exactly 5, several places assume
+// this) — used to pick a second department to contrast mostOverBudgetDept
+// against, so the budget question exercises get_budget_status's
+// `departments` filter (a tight 2-bar comparison) instead of dumping all 5.
+const DEPARTMENTS = ["Engineering", "Marketing", "Sales", "Operations", "Finance"] as const;
+
 // Deterministic questions grounded in the real seeded data (date coverage,
 // the biggest detected anomaly, the department that's over budget most
 // often) — no extra model round-trip, so there's no risk of the model
@@ -56,21 +62,30 @@ export const fmtMoneyShort = (n: number) =>
 function buildQuestions(h: Highlights): readonly string[] {
   const trend = `Show me the revenue trend from ${fmtMonthLong(h.dataFrom)} to ${fmtMonthLong(h.dataTo)}.`;
   const budget = h.mostOverBudgetDept
-    ? `Why does ${h.mostOverBudgetDept.department} keep going over budget?`
+    ? (() => {
+        // Prefer contrasting against Finance (typically the most controlled
+        // budget); fall back to the first department that isn't the
+        // over-budget one, in case Finance itself is the one struggling.
+        const contrast =
+          DEPARTMENTS.find((d) => d === "Finance" && d !== h.mostOverBudgetDept?.department) ??
+          DEPARTMENTS.find((d) => d !== h.mostOverBudgetDept?.department) ??
+          "Finance";
+        return `Why does ${h.mostOverBudgetDept.department} keep going over budget, and how does that compare to ${contrast}?`;
+      })()
     : `Which departments are over budget in ${fmtMonthLong(h.latestMonth)}?`;
   const anomaly = h.topAnomaly
-    ? `Why was there a ${fmtMoneyShort(h.topAnomaly.amount)} ${h.topAnomaly.category} spike in ${h.topAnomaly.department}?`
+    ? `Why was there a ${fmtMoneyShort(h.topAnomaly.amount)} ${h.topAnomaly.category} spike in ${h.topAnomaly.department}, and is it likely to happen again?`
     : `Any unusual expenses from ${fmtMonthLong(h.dataFrom)} to ${fmtMonthLong(h.dataTo)}?`;
   const summary = `What were total income and expenses from ${fmtMonthLong(h.dataFrom)} to ${fmtMonthLong(h.dataTo)}?`;
   const cashflow = `How did cash flow evolve from ${fmtMonthLong(h.dataFrom)} to ${fmtMonthLong(h.dataTo)}?`;
-  const breakdown = `What did we spend the most on from ${fmtMonthLong(h.dataFrom)} to ${fmtMonthLong(h.dataTo)}?`;
+  const breakdown = `Break down every expense category from ${fmtMonthLong(h.dataFrom)} to ${fmtMonthLong(h.dataTo)} — what's driving the total?`;
   // Distinct from `trend`: forces groupBy: "department" so the chart renders
   // multiple lines instead of one, showing off the whole data range.
-  const deptTrend = `Compare monthly expenses across departments from ${fmtMonthLong(h.dataFrom)} to ${fmtMonthLong(h.dataTo)}.`;
+  const deptTrend = `Compare monthly expenses across all departments from ${fmtMonthLong(h.dataFrom)} to ${fmtMonthLong(h.dataTo)} — which one is the biggest driver?`;
   // fastestGrowingCategory is computed server-side from real first-half vs.
   // second-half totals (see getHighlights) — not a guess at what's growing.
   const growth = h.fastestGrowingCategory
-    ? `${h.fastestGrowingCategory.category} grew ${h.fastestGrowingCategory.multiple.toFixed(1)}x — show me how.`
+    ? `${h.fastestGrowingCategory.category} grew ${h.fastestGrowingCategory.multiple.toFixed(1)}x — show me the trend and where it's headed next quarter.`
     : "Which revenue category has grown the fastest?";
   return [trend, budget, anomaly, summary, cashflow, breakdown, deptTrend, growth];
 }
