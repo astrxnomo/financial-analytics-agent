@@ -1,6 +1,8 @@
 import { db } from "./db";
 import { meanStdDev } from "./stats";
-import type { Summary, TrendPoint, BudgetRow, Anomaly, Metric, GroupBy } from "./finance.types";
+import type {
+  Summary, TrendPoint, BudgetRow, Anomaly, Metric, GroupBy, Highlights,
+} from "./finance.types";
 
 const num = (v: unknown) => Number(v);
 const day = (v: unknown) => (v instanceof Date ? v.toISOString().slice(0, 10) : String(v));
@@ -99,4 +101,58 @@ export async function getAnomalies(input: {
     }
   }
   return out.sort((a, b) => b.amount - a.amount);
+}
+
+export async function getHighlights(): Promise<Highlights> {
+  const sql = db();
+
+  const [range] = await sql<{ from: Date; to: Date }[]>`
+    SELECT MIN(date) AS from, MAX(date) AS to FROM transactions`;
+  const [latest] = await sql<{ month: Date }[]>`SELECT MAX(month) AS month FROM budgets`;
+  if (!range || !latest) {
+    throw new Error("No seeded finance data found.");
+  }
+  const dataFrom = day(range.from);
+  const dataTo = day(range.to);
+  const latestMonth = day(latest.month);
+
+  // Payroll scales with headcount, so comparing it across departments of very
+  // different sizes trips the category-wide threshold on routine growth, not
+  // genuine one-off spend. Excluded here so the highlighted anomaly is one
+  // that's actually interesting to surface, not just "the big department".
+  const [topAnomaly] = (await getAnomalies({ from: dataFrom, to: dataTo })).filter(
+    (a) => a.category !== "Payroll",
+  );
+
+  const [overBudget] = await sql<{ department: string; over_months: string }[]>`
+    SELECT d.name AS department, COUNT(*) AS over_months
+    FROM departments d
+    JOIN budgets b ON b.department_id = d.id
+    JOIN (
+      SELECT department_id, date_trunc('month', date) AS month, SUM(amount) AS actual
+      FROM transactions
+      WHERE type = 'expense'
+      GROUP BY department_id, month
+    ) t ON t.department_id = d.id AND t.month = b.month
+    WHERE t.actual > b.amount
+    GROUP BY d.name
+    ORDER BY over_months DESC
+    LIMIT 1`;
+
+  return {
+    dataFrom,
+    dataTo,
+    latestMonth,
+    mostOverBudgetDept: overBudget
+      ? { department: overBudget.department, overMonths: num(overBudget.over_months) }
+      : undefined,
+    topAnomaly: topAnomaly
+      ? {
+          amount: topAnomaly.amount,
+          category: topAnomaly.category,
+          date: topAnomaly.date,
+          department: topAnomaly.department,
+        }
+      : undefined,
+  };
 }

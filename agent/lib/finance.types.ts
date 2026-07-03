@@ -8,3 +8,11 @@ export interface Anomaly {
   id: number; date: string; amount: number; department: string; category: string;
   description: string; categoryMean: number; categoryStdDev: number;
 }
+
+export interface Highlights {
+  dataFrom: string;
+  dataTo: string;
+  latestMonth: string;
+  topAnomaly?: { department: string; category: string; amount: number; date: string };
+  mostOverBudgetDept?: { department: string; overMonths: number };
+}

@@ -10,9 +10,6 @@ export default defineAgent({
   compaction: {
     thresholdPercent: 0.7, // compact at 70% to prevent bloat
   },
-  // Session token limits to prevent runaway costs
-  limits: {
-    maxInputTokensPerSession: 100_000,
-    maxOutputTokensPerSession: 15_000,
-  },
+  // No custom session limits — using eve's generous defaults since the
+  // Mistral usage here is free-tier and cost isn't a concern.
 });

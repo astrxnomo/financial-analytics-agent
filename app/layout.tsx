@@ -26,7 +26,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { readonly children: ReactNode }) {
   return (
-    <html className={cn(sans.variable, mono.variable)} lang="en">
+    <html className={cn("dark", sans.variable, mono.variable)} lang="en">
       <body>
         <TooltipProvider>{children}</TooltipProvider>
       </body>

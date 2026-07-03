@@ -6,7 +6,13 @@ import type {
   EveMessage,
   EveMessagePart,
 } from "eve/react";
-import { CheckCircleIcon, ExternalLinkIcon, KeyRoundIcon, XCircleIcon } from "lucide-react";
+import {
+  CheckCircleIcon,
+  ExternalLinkIcon,
+  KeyRoundIcon,
+  WrenchIcon,
+  XCircleIcon,
+} from "lucide-react";
 import { Message, MessageContent, MessageResponse } from "@/components/ai-elements/message";
 import { Reasoning, ReasoningContent, ReasoningTrigger } from "@/components/ai-elements/reasoning";
 import {
@@ -18,7 +24,7 @@ import {
 } from "@/components/ai-elements/tool";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { isFinanceTool, ToolResult } from "./tool-result";
+import { isFinanceTool, ToolResult, ToolResultSkeleton } from "./tool-result";
 
 export type AgentInputResponse = {
   readonly optionId?: string;
@@ -91,36 +97,84 @@ function AgentMessagePart({
       );
     case "authorization":
       return <AuthorizationPrompt part={part} />;
-    case "dynamic-tool":
+    case "dynamic-tool": {
+      const isApprovalFlow =
+        part.state === "approval-requested" || part.state === "approval-responded";
+      const hasInputRequest = Boolean(part.toolMetadata?.eve?.inputRequest);
+
       return (
         <>
           {part.state === "output-available" && isFinanceTool(part.toolName) ? (
             <ToolResult name={part.toolName} output={part.output} />
           ) : null}
-          <Tool
-            defaultOpen={
-              part.state === "approval-requested" || part.state === "approval-responded"
-            }
-          >
-            <ToolHeader
-              state={part.state}
-              title={part.toolName}
-              toolName={part.toolName}
-              type="dynamic-tool"
-            />
-            <ToolContent>
-              <ToolInput input={part.input} />
-              <InputRequestActions
-                canRespond={canRespond}
-                part={part}
-                onInputResponses={onInputResponses}
+          {part.state === "input-available" && isFinanceTool(part.toolName) ? (
+            <ToolResultSkeleton />
+          ) : null}
+          {isApprovalFlow ? (
+            <Tool defaultOpen>
+              <ToolHeader
+                state={part.state}
+                title={part.toolName}
+                toolName={part.toolName}
+                type="dynamic-tool"
               />
-              <ToolOutput errorText={part.errorText} output={part.output} />
-            </ToolContent>
-          </Tool>
+              <ToolContent>
+                <ToolInput input={part.input} />
+                <InputRequestActions
+                  canRespond={canRespond}
+                  part={part}
+                  onInputResponses={onInputResponses}
+                />
+                <ToolOutput errorText={part.errorText} output={part.output} />
+              </ToolContent>
+            </Tool>
+          ) : (
+            <DiscreetToolBadge state={part.state} toolName={part.toolName} />
+          )}
+          {!isApprovalFlow && hasInputRequest ? (
+            <InputRequestActions
+              canRespond={canRespond}
+              part={part}
+              onInputResponses={onInputResponses}
+            />
+          ) : null}
         </>
       );
+    }
   }
+}
+
+const TOOL_STATE_LABEL: Record<EveDynamicToolPart["state"], string> = {
+  "approval-requested": "Awaiting approval",
+  "approval-responded": "Responded",
+  "input-available": "Running",
+  "input-streaming": "Preparing",
+  "output-available": "Used",
+  "output-denied": "Denied",
+  "output-error": "Failed",
+};
+
+function DiscreetToolBadge({
+  state,
+  toolName,
+}: {
+  readonly state: EveDynamicToolPart["state"];
+  readonly toolName: string;
+}) {
+  const isError = state === "output-error" || state === "output-denied";
+  return (
+    <div
+      className={cn(
+        "inline-flex w-fit items-center gap-1.5 text-xs",
+        isError ? "text-destructive" : "text-muted-foreground",
+      )}
+    >
+      <WrenchIcon className="size-3" />
+      <span>
+        {TOOL_STATE_LABEL[state]} <span className="font-mono">{toolName}</span>
+      </span>
+    </div>
+  );
 }
 
 function AuthorizationPrompt({ part }: { readonly part: EveAuthorizationPart }) {
