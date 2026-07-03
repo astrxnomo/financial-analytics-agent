@@ -1,11 +1,11 @@
 import { z } from "zod";
+import { parseQuery } from "@/agent/lib/api-route";
 import { getBudgetStatus } from "@/agent/lib/finance";
 
 const Q = z.object({ month: z.string() });
 
 export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const parsed = Q.safeParse(Object.fromEntries(searchParams));
-  if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 400 });
-  return Response.json(await getBudgetStatus(parsed.data));
+  const { data, error } = parseQuery(Q, req);
+  if (error) return error;
+  return Response.json(await getBudgetStatus(data));
 }

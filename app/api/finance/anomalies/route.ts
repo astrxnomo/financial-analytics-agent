@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { parseQuery } from "@/agent/lib/api-route";
 import { getAnomalies } from "@/agent/lib/finance";
 
 const Q = z.object({
@@ -8,8 +9,7 @@ const Q = z.object({
 });
 
 export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const parsed = Q.safeParse(Object.fromEntries(searchParams));
-  if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 400 });
-  return Response.json(await getAnomalies(parsed.data));
+  const { data, error } = parseQuery(Q, req);
+  if (error) return error;
+  return Response.json(await getAnomalies(data));
 }
