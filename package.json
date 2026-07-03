@@ -10,17 +10,26 @@
     "build": "eve build",
     "dev": "eve dev",
     "start": "eve start",
-    "typecheck": "tsc"
+    "typecheck": "tsc",
+    "db:migrate": "tsx db/migrate.ts",
+    "db:seed": "tsx db/seed.ts",
+    "test": "vitest run"
   },
   "dependencies": {
+    "@ai-sdk/mistral": "^4.0.5",
     "@vercel/connect": "0.2.2",
     "ai": "^7.0.0",
     "eve": "^0.19.0",
+    "postgres": "^3.4.9",
     "zod": "4.4.3"
   },
   "devDependencies": {
     "@types/node": "24.x",
-    "typescript": "7.0.1-rc"
+    "dotenv": "^17.4.2",
+    "just-bash": "^3.0.2",
+    "tsx": "^4.22.5",
+    "typescript": "7.0.1-rc",
+    "vitest": "^4.1.9"
   },
   "overrides": {
     "ai": "^7.0.0"
@@ -28,5 +37,4 @@
   "engines": {
     "node": "24.x"
   }
-
 }
