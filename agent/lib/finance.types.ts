@@ -9,6 +9,11 @@ export interface Anomaly {
   description: string; categoryMean: number; categoryStdDev: number;
 }
 
+export interface CategorySlice { period: string; category: string; value: number; }
+export interface CashflowPoint {
+  period: string; income: number; expense: number; net: number; cumulativeNet: number;
+}
+
 export interface Highlights {
   dataFrom: string;
   dataTo: string;

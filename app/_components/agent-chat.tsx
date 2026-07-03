@@ -31,17 +31,33 @@ const FALLBACK_QUESTIONS = [
   "Which departments are over budget this month?",
   "Any unusual expenses in the last year?",
   "What were total income and expenses this year?",
+  "How is our cash flow trending?",
+  "What do we spend the most on?",
 ];
 
-// Index-aligned with the [trend, budget, anomaly, summary] question order
-// from buildQuestions.
-const QUESTION_TOPICS = ["Revenue", "Budgets", "Anomalies", "P&L"] as const;
+// Index-aligned with the [trend, budget, anomaly, summary, cashflow,
+// breakdown] question order from buildQuestions.
+const QUESTION_TOPICS = [
+  "Revenue",
+  "Budgets",
+  "Anomalies",
+  "P&L",
+  "Cash flow",
+  "Spend mix",
+] as const;
 
+// timeZone: "UTC" — seed dates are date-only ISO strings; parsing them as UTC
+// midnight and formatting in local time would shift them back a day (e.g.
+// 2025-01-01 rendering as "Dec 2024" west of Greenwich).
 const fmtMonthLong = (iso: string) =>
-  new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" }).format(new Date(iso));
+  new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" }).format(
+    new Date(iso),
+  );
 
 const fmtMonthShort = (iso: string) =>
-  new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric" }).format(new Date(iso));
+  new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric", timeZone: "UTC" }).format(
+    new Date(iso),
+  );
 
 const fmtMoneyShort = (n: number) =>
   new Intl.NumberFormat("en-US", {
@@ -78,7 +94,9 @@ function buildQuestions(h: Highlights): readonly string[] {
     ? `Why was there a ${fmtMoneyShort(h.topAnomaly.amount)} ${h.topAnomaly.category} spike in ${h.topAnomaly.department}?`
     : `Any unusual expenses from ${fmtMonthLong(h.dataFrom)} to ${fmtMonthLong(h.dataTo)}?`;
   const summary = `What were total income and expenses from ${fmtMonthLong(h.dataFrom)} to ${fmtMonthLong(h.dataTo)}?`;
-  return [trend, budget, anomaly, summary];
+  const cashflow = `How did cash flow evolve from ${fmtMonthLong(h.dataFrom)} to ${fmtMonthLong(h.dataTo)}?`;
+  const breakdown = `What did we spend the most on from ${fmtMonthLong(h.dataFrom)} to ${fmtMonthLong(h.dataTo)}?`;
+  return [trend, budget, anomaly, summary, cashflow, breakdown];
 }
 
 function useFinanceHighlights(): {
@@ -114,6 +132,8 @@ function useFinanceHighlights(): {
 const QUESTION_INDEX_BY_TOOL: Record<string, number> = {
   get_anomalies: 2,
   get_budget_status: 1,
+  get_cashflow: 4,
+  get_category_breakdown: 5,
   get_summary: 3,
   get_trend: 0,
 };
@@ -157,9 +177,11 @@ export function AgentChat() {
   const asked = sentQuestions(agent.data.messages);
   const followups =
     followupTool !== undefined
-      ? questions.filter(
-          (question, i) => i !== QUESTION_INDEX_BY_TOOL[followupTool] && !asked.has(question),
-        )
+      ? questions
+          .filter(
+            (question, i) => i !== QUESTION_INDEX_BY_TOOL[followupTool] && !asked.has(question),
+          )
+          .slice(0, 3)
       : undefined;
 
   const handleSubmit = async (message: PromptInputMessage) => {

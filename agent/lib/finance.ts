@@ -2,6 +2,7 @@ import { db } from "./db";
 import { meanStdDev } from "./stats";
 import type {
   Summary, TrendPoint, BudgetRow, Anomaly, Metric, GroupBy, Highlights,
+  CategorySlice, CashflowPoint,
 } from "./finance.types";
 
 const num = (v: unknown) => Number(v);
@@ -40,6 +41,44 @@ export async function getTrend(input: {
     GROUP BY period
     ORDER BY period`;
   return rows.map((r) => ({ period: day(r.period), value: num(r.value) }));
+}
+
+export async function getCategoryBreakdown(input: {
+  from: string; to: string; metric?: Metric; department?: string;
+}): Promise<CategorySlice[]> {
+  const sql = db();
+  const metric = input.metric ?? "expense";
+  const rows = await sql<{ period: Date; category: string; value: string }[]>`
+    SELECT date_trunc('month', t.date)::date AS period, c.name AS category,
+           COALESCE(SUM(t.amount), 0) AS value
+    FROM transactions t
+    JOIN categories c ON c.id = t.category_id
+    JOIN departments d ON d.id = t.department_id
+    WHERE t.type = ${metric} AND t.date >= ${input.from} AND t.date <= ${input.to}
+      AND (${input.department ?? null}::text IS NULL OR d.name = ${input.department ?? null})
+    GROUP BY period, c.name
+    ORDER BY period, c.name`;
+  return rows.map((r) => ({ period: day(r.period), category: r.category, value: num(r.value) }));
+}
+
+export async function getCashflow(input: { from: string; to: string }): Promise<CashflowPoint[]> {
+  const sql = db();
+  const rows = await sql<{ period: Date; income: string; expense: string }[]>`
+    SELECT date_trunc('month', date)::date AS period,
+           COALESCE(SUM(amount) FILTER (WHERE type = 'income'), 0) AS income,
+           COALESCE(SUM(amount) FILTER (WHERE type = 'expense'), 0) AS expense
+    FROM transactions
+    WHERE date >= ${input.from} AND date <= ${input.to}
+    GROUP BY period
+    ORDER BY period`;
+  let running = 0;
+  return rows.map((r) => {
+    const income = num(r.income);
+    const expense = num(r.expense);
+    const net = income - expense;
+    running += net;
+    return { period: day(r.period), income, expense, net, cumulativeNet: running };
+  });
 }
 
 export async function getBudgetStatus(input: { month: string }): Promise<BudgetRow[]> {

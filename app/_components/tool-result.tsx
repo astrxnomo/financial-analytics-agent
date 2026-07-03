@@ -3,19 +3,31 @@
 import { SearchXIcon, TrendingDownIcon, TrendingUpIcon } from "lucide-react";
 import { memo } from "react";
 import {
+  Area,
+  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
   Cell,
+  ComposedChart,
   Legend,
   Line,
   LineChart,
+  Pie,
+  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
-import type { Anomaly, BudgetRow, Summary, TrendPoint } from "@/agent/lib/finance.types";
+import type {
+  Anomaly,
+  BudgetRow,
+  CashflowPoint,
+  CategorySlice,
+  Summary,
+  TrendPoint,
+} from "@/agent/lib/finance.types";
 import {
   AXIS,
   CRITICAL,
@@ -38,6 +50,8 @@ const TOOL_NAMES = new Set([
   "get_trend",
   "get_budget_status",
   "get_anomalies",
+  "get_category_breakdown",
+  "get_cashflow",
 ]);
 
 export function isFinanceTool(name: string): boolean {
@@ -63,6 +77,10 @@ export const ToolResult = memo(
     if (name === "get_budget_status")
       return <Panel><BudgetChart rows={output as BudgetRow[]} /></Panel>;
     if (name === "get_anomalies") return <Panel><AnomalyList rows={output as Anomaly[]} /></Panel>;
+    if (name === "get_category_breakdown")
+      return <Panel><CategoryBreakdownChart slices={output as CategorySlice[]} /></Panel>;
+    if (name === "get_cashflow")
+      return <Panel><CashflowChart points={output as CashflowPoint[]} /></Panel>;
     return null;
   },
   (prev, next) => prev.name === next.name && prev.output === next.output,
@@ -351,6 +369,208 @@ function BudgetChart({ rows }: { readonly rows: BudgetRow[] }) {
             ))}
           </Bar>
         </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+const OTHER_COLOR = "var(--chart-muted)";
+const MAX_STACK_CATEGORIES = 5;
+
+// Stacked area of monthly totals per category; a single month renders as a
+// donut instead (no time axis to stack along).
+function CategoryBreakdownChart({ slices }: { readonly slices: CategorySlice[] }) {
+  if (slices.length === 0) {
+    return (
+      <div>
+        <ChartHeader title="Category breakdown" />
+        <EmptyState message="No data for this range." />
+      </div>
+    );
+  }
+
+  const periods = [...new Set(slices.map((s) => s.period))].sort();
+  const caption = monthRange(periods);
+
+  // Rank categories by total; everything past the palette folds into Other.
+  const totals = new Map<string, number>();
+  for (const s of slices) totals.set(s.category, (totals.get(s.category) ?? 0) + s.value);
+  const ranked = [...totals.entries()].sort((a, b) => b[1] - a[1]).map(([name]) => name);
+  const top = ranked.slice(0, MAX_STACK_CATEGORIES);
+  const hasOther = ranked.length > top.length;
+
+  if (periods.length <= 1) {
+    const data = top.map((name, i) => ({
+      fill: SERIES[i % SERIES.length],
+      name,
+      value: totals.get(name) ?? 0,
+    }));
+    if (hasOther) {
+      const otherTotal = ranked.slice(top.length).reduce((sum, n) => sum + (totals.get(n) ?? 0), 0);
+      data.push({ fill: OTHER_COLOR, name: "Other", value: otherTotal });
+    }
+    return (
+      <div>
+        <ChartHeader caption={caption} title="Category mix" />
+        <ResponsiveContainer debounce={200} height={280} width="100%">
+          <PieChart>
+            <Pie
+              data={data}
+              dataKey="value"
+              innerRadius={60}
+              nameKey="name"
+              outerRadius={100}
+              paddingAngle={2}
+              stroke="none"
+            >
+              {data.map((d) => (
+                <Cell fill={d.fill} key={d.name} />
+              ))}
+            </Pie>
+            <Tooltip
+              contentStyle={TOOLTIP_CONTENT_STYLE}
+              formatter={(v) => fmtMoney(Number(v))}
+              itemStyle={TOOLTIP_ITEM_STYLE}
+              labelStyle={TOOLTIP_LABEL_STYLE}
+            />
+            <Legend wrapperStyle={{ fontSize: 12 }} />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+    );
+  }
+
+  const data = periods.map((period) => {
+    const row: Record<string, number | string> = { period };
+    for (const name of top) row[name] = 0;
+    if (hasOther) row.Other = 0;
+    for (const s of slices) {
+      if (s.period !== period) continue;
+      const key = top.includes(s.category) ? s.category : "Other";
+      row[key] = (row[key] as number) + s.value;
+    }
+    return row;
+  });
+
+  return (
+    <div>
+      <ChartHeader caption={caption} title="Category breakdown" />
+      <ResponsiveContainer debounce={200} height={300} width="100%">
+        <AreaChart data={data} margin={{ top: 8, right: 16, bottom: 8, left: 8 }}>
+          <CartesianGrid stroke={GRID} vertical={false} />
+          <XAxis
+            axisLine={{ stroke: AXIS }}
+            dataKey="period"
+            stroke={MUTED}
+            tick={{ fontSize: 12, fill: MUTED }}
+            tickFormatter={(v) => fmtDate(String(v))}
+            tickLine={false}
+          />
+          <YAxis
+            axisLine={false}
+            stroke={MUTED}
+            tick={{ fontSize: 12, fill: MUTED }}
+            tickFormatter={(v) => fmtMoney(Number(v))}
+            tickLine={false}
+            width={72}
+          />
+          <Tooltip
+            contentStyle={TOOLTIP_CONTENT_STYLE}
+            formatter={(v) => fmtMoney(Number(v))}
+            itemStyle={TOOLTIP_ITEM_STYLE}
+            labelFormatter={(v) => fmtDate(String(v))}
+            labelStyle={TOOLTIP_LABEL_STYLE}
+          />
+          <Legend wrapperStyle={{ fontSize: 12 }} />
+          {top.map((name, i) => (
+            <Area
+              dataKey={name}
+              fill={SERIES[i % SERIES.length]}
+              fillOpacity={0.35}
+              key={name}
+              stackId="mix"
+              stroke={SERIES[i % SERIES.length]}
+              strokeWidth={1.5}
+              type="monotone"
+            />
+          ))}
+          {hasOther ? (
+            <Area
+              dataKey="Other"
+              fill={OTHER_COLOR}
+              fillOpacity={0.25}
+              stackId="mix"
+              stroke={OTHER_COLOR}
+              strokeWidth={1.5}
+              type="monotone"
+            />
+          ) : null}
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+// Monthly income vs. expense bars with the cumulative net position overlaid
+// as a line — shows both the rhythm and where the balance is heading.
+function CashflowChart({ points }: { readonly points: CashflowPoint[] }) {
+  if (points.length === 0) {
+    return (
+      <div>
+        <ChartHeader title="Cash flow" />
+        <EmptyState message="No data for this range." />
+      </div>
+    );
+  }
+
+  const caption = monthRange(points.map((p) => p.period));
+  const endNet = points.at(-1)?.cumulativeNet ?? 0;
+
+  return (
+    <div>
+      <ChartHeader
+        caption={caption}
+        title={`Cash flow — cumulative net ${fmtMoney(endNet)}`}
+      />
+      <ResponsiveContainer debounce={200} height={300} width="100%">
+        <ComposedChart data={points} margin={{ top: 8, right: 16, bottom: 8, left: 8 }}>
+          <CartesianGrid stroke={GRID} vertical={false} />
+          <XAxis
+            axisLine={{ stroke: AXIS }}
+            dataKey="period"
+            stroke={MUTED}
+            tick={{ fontSize: 12, fill: MUTED }}
+            tickFormatter={(v) => fmtDate(String(v))}
+            tickLine={false}
+          />
+          <YAxis
+            axisLine={false}
+            stroke={MUTED}
+            tick={{ fontSize: 12, fill: MUTED }}
+            tickFormatter={(v) => fmtMoney(Number(v))}
+            tickLine={false}
+            width={72}
+          />
+          <Tooltip
+            contentStyle={TOOLTIP_CONTENT_STYLE}
+            cursor={TOOLTIP_CURSOR_FILL}
+            formatter={(v) => fmtMoney(Number(v))}
+            itemStyle={TOOLTIP_ITEM_STYLE}
+            labelFormatter={(v) => fmtDate(String(v))}
+            labelStyle={TOOLTIP_LABEL_STYLE}
+          />
+          <Legend wrapperStyle={{ fontSize: 12 }} />
+          <Bar dataKey="income" fill={SERIES[1]} name="Income" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="expense" fill={SERIES[2]} name="Expense" radius={[4, 4, 0, 0]} />
+          <Line
+            dataKey="cumulativeNet"
+            dot={false}
+            name="Cumulative net"
+            stroke={SERIES[4]}
+            strokeWidth={2}
+            type="monotone"
+          />
+        </ComposedChart>
       </ResponsiveContainer>
     </div>
   );

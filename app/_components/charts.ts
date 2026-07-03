@@ -39,13 +39,21 @@ export const fmtMoney = (n: number) =>
     maximumFractionDigits: 0,
   }).format(n);
 
+// timeZone: "UTC" — tool results carry date-only ISO strings; formatting the
+// UTC-midnight parse in local time would render them one day early west of
+// Greenwich (2025-01-01 → "Dec 31, 2024").
 export const fmtMonth = (iso: string) =>
-  new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric" }).format(new Date(iso));
-
-export const fmtDate = (iso: string) =>
-  new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(
+  new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric", timeZone: "UTC" }).format(
     new Date(iso),
   );
+
+export const fmtDate = (iso: string) =>
+  new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(iso));
 
 export const fmtPercent = (n: number) =>
   new Intl.NumberFormat("en-US", { style: "percent", maximumFractionDigits: 0 }).format(n);
