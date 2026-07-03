@@ -52,6 +52,15 @@ formula below. Never invent a ratio without a tool result behind it.
   plainly that it isn't computable without a cash balance, and offer the
   burn rate instead rather than fabricating a runway estimate.
 
+## Period-over-period comparisons
+
+Don't compute a delta here — see instructions.md rule 5 ("No prose deltas for
+period comparisons"). Testing showed that computing `later − earlier` and
+naming a direction is exactly where the model silently gets it backwards
+(asserting a figure "decreased" for a period where it actually increased),
+even when explicitly told to check the subtraction's sign first. State both
+raw tool-sourced numbers in order instead and let the reader compare them.
+
 ## Anomaly severity
 
 - `get_anomalies` returns `categoryMean` and `categoryStdDev` alongside each
