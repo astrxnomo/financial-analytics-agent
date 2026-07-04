@@ -159,7 +159,12 @@ function AgentMessagePart({
         <>
           {isFinanceTool(part.toolName) &&
           (part.state === "input-available" || part.state === "output-available") ? (
-            <FinanceToolSlot name={part.toolName} output={part.output} state={part.state} />
+            <FinanceToolSlot
+              input={part.input}
+              name={part.toolName}
+              output={part.output}
+              state={part.state}
+            />
           ) : null}
           {isApprovalFlow ? (
             <Tool defaultOpen>

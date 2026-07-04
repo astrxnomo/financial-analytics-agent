@@ -43,10 +43,12 @@ export function ToolResultSkeleton() {
 // call resolves. `layout` animates the height change between the fixed
 // 280px skeleton and the chart's natural height instead of letting it jump.
 export function FinanceToolSlot({
+  input,
   name,
   output,
   state,
 }: {
+  readonly input?: unknown;
   readonly name: string;
   readonly output: unknown;
   readonly state: "input-available" | "output-available";
@@ -66,7 +68,7 @@ export function FinanceToolSlot({
           layout
           transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.22, ease: "easeOut" }}
         >
-          <ToolResult name={name} output={output} />
+          <ToolResult input={input} name={name} output={output} />
         </motion.div>
       ) : (
         <motion.div
@@ -85,7 +87,15 @@ export function FinanceToolSlot({
 }
 
 export const ToolResult = memo(
-  function ToolResult({ name, output }: { readonly name: string; readonly output: unknown }) {
+  function ToolResult({
+    input,
+    name,
+    output,
+  }: {
+    readonly input?: unknown;
+    readonly name: string;
+    readonly output: unknown;
+  }) {
     if (name === "get_summary") return <Panel><SummaryTiles s={output as Summary} /></Panel>;
     if (name === "get_trend")
       return (
@@ -94,13 +104,17 @@ export const ToolResult = memo(
           title="Trend"
         />
       );
-    if (name === "get_budget_status")
+    if (name === "get_budget_status") {
+      const month = (input as { month?: string } | undefined)?.month;
       return (
         <ChartPanel
-          render={(size, action) => <BudgetChart action={action} rows={output as BudgetRow[]} size={size} />}
+          render={(size, action) => (
+            <BudgetChart action={action} month={month} rows={output as BudgetRow[]} size={size} />
+          )}
           title="Budget vs. actual"
         />
       );
+    }
     if (name === "get_anomalies") return <Panel><AnomalyList rows={output as Anomaly[]} /></Panel>;
     if (name === "get_category_breakdown") {
       const { slices } = output as { slices: CategorySlice[]; otherCategories: string[] };
@@ -122,5 +136,6 @@ export const ToolResult = memo(
       return <Panel><DataOverviewTiles o={output as DataOverview} /></Panel>;
     return null;
   },
-  (prev, next) => prev.name === next.name && prev.output === next.output,
+  (prev, next) =>
+    prev.name === next.name && prev.output === next.output && prev.input === next.input,
 );

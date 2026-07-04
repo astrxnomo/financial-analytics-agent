@@ -2,37 +2,40 @@
 
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { BudgetRow } from "@/agent/lib/finance.types";
-import { AXIS, CRITICAL, fmtMoney, GRID, MUTED, SERIES, TOOLTIP_CURSOR_FILL } from "../charts";
+import { AXIS, CRITICAL, fmtMoney, fmtMonth, GRID, MUTED, SERIES, TOOLTIP_CURSOR_FILL } from "../charts";
 import { ChartTooltip, type ChartSize } from "./chart-tooltip";
 import { ChartHeader, EmptyState, LegendSwatch } from "./panel";
 
 export function BudgetChart({
   action,
+  month,
   rows,
   size = "compact",
 }: {
   readonly action?: React.ReactNode;
+  readonly month?: string;
   readonly rows: BudgetRow[];
   readonly size?: ChartSize;
 }) {
+  const caption = month ? fmtMonth(month) : undefined;
+
   if (rows.length === 0) {
     return (
       <div>
-        <ChartHeader action={action} title="Budget vs. actual" />
+        <ChartHeader action={action} caption={caption} title="Budget vs. actual" />
         <EmptyState message="No budget data for this month." />
       </div>
     );
   }
 
   const overCount = rows.filter((r) => r.actual > r.budget).length;
-  const caption =
-    overCount === 0
-      ? "All departments within budget"
-      : `${overCount} of ${rows.length} over budget`;
+  const overBudgetSummary =
+    overCount === 0 ? "All departments within budget" : `${overCount} of ${rows.length} over budget`;
 
   return (
     <div>
       <ChartHeader action={action} caption={caption} title="Budget vs. actual" />
+      <p className="mb-2 text-muted-foreground text-xs">{overBudgetSummary}</p>
       <div className="mb-2 flex flex-wrap items-center gap-4">
         <LegendSwatch color={SERIES[0]} label="Budget" />
         <LegendSwatch color={SERIES[1]} label="Actual" />
