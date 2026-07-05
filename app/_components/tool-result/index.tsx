@@ -8,14 +8,17 @@ import type {
   CashflowPoint,
   CategorySlice,
   DataOverview,
+  ProfitByDept,
   Summary,
   TrendPoint,
 } from "@/agent/lib/finance.types";
+import { fmtDate, metricLabel, scopeSuffix } from "../charts";
 import { AnomalyList } from "./anomaly-list";
 import { BudgetChart } from "./budget-chart";
 import { CashflowChart } from "./cashflow-chart";
 import { CategoryBreakdownChart } from "./category-breakdown-chart";
 import { ChartPanel, Panel } from "./panel";
+import { ProfitabilityChart } from "./profitability-chart";
 import { DataOverviewTiles, SummaryTiles } from "./summary-tiles";
 import { TrendChart } from "./trend-chart";
 
@@ -26,6 +29,7 @@ const TOOL_NAMES = new Set([
   "get_anomalies",
   "get_category_breakdown",
   "get_cashflow",
+  "get_profitability",
   "get_data_overview",
 ]);
 
@@ -97,31 +101,73 @@ export const ToolResult = memo(
     readonly output: unknown;
   }) {
     if (name === "get_summary") return <Panel><SummaryTiles s={output as Summary} /></Panel>;
-    if (name === "get_trend")
-      return (
-        <ChartPanel
-          render={(size, action) => <TrendChart action={action} points={output as TrendPoint[]} size={size} />}
-          title="Trend"
-        />
-      );
-    if (name === "get_budget_status") {
-      const month = (input as { month?: string } | undefined)?.month;
+    if (name === "get_trend") {
+      const trendInput = input as { metric?: "income" | "expense"; departments?: string[] } | undefined;
       return (
         <ChartPanel
           render={(size, action) => (
-            <BudgetChart action={action} month={month} rows={output as BudgetRow[]} size={size} />
+            <TrendChart
+              action={action}
+              departments={trendInput?.departments}
+              metric={trendInput?.metric}
+              points={output as TrendPoint[]}
+              size={size}
+            />
           )}
-          title="Budget vs. actual"
+          title={`${metricLabel(trendInput?.metric) ?? "Monthly"} trend${scopeSuffix([trendInput?.departments])}`}
         />
       );
     }
-    if (name === "get_anomalies") return <Panel><AnomalyList rows={output as Anomaly[]} /></Panel>;
-    if (name === "get_category_breakdown") {
-      const { slices } = output as { slices: CategorySlice[]; otherCategories: string[] };
+    if (name === "get_budget_status") {
+      const budgetInput = input as { month?: string; departments?: string[] } | undefined;
       return (
         <ChartPanel
-          render={(size, action) => <CategoryBreakdownChart action={action} size={size} slices={slices} />}
-          title="Category breakdown"
+          render={(size, action) => (
+            <BudgetChart
+              action={action}
+              departments={budgetInput?.departments}
+              month={budgetInput?.month}
+              rows={output as BudgetRow[]}
+              size={size}
+            />
+          )}
+          title={`Budget vs. actual${scopeSuffix([budgetInput?.departments])}`}
+        />
+      );
+    }
+    if (name === "get_anomalies") {
+      const anomalyInput = input as { departments?: string[]; categories?: string[] } | undefined;
+      return (
+        <Panel>
+          <AnomalyList
+            categories={anomalyInput?.categories}
+            departments={anomalyInput?.departments}
+            rows={output as Anomaly[]}
+          />
+        </Panel>
+      );
+    }
+    if (name === "get_category_breakdown") {
+      const { slices } = output as { slices: CategorySlice[]; otherCategories: string[] };
+      const breakdownInput = input as
+        | { metric?: "income" | "expense"; department?: string; category?: string }
+        | undefined;
+      return (
+        <ChartPanel
+          render={(size, action) => (
+            <CategoryBreakdownChart
+              action={action}
+              category={breakdownInput?.category}
+              department={breakdownInput?.department}
+              metric={breakdownInput?.metric}
+              size={size}
+              slices={slices}
+            />
+          )}
+          title={`${metricLabel(breakdownInput?.metric) ?? "Expense"} breakdown${scopeSuffix([
+            breakdownInput?.department,
+            breakdownInput?.category,
+          ])}`}
         />
       );
     }
@@ -132,6 +178,27 @@ export const ToolResult = memo(
           title="Cash flow"
         />
       );
+    if (name === "get_profitability") {
+      const profitInput = input as { from?: string; to?: string; departments?: string[] } | undefined;
+      const caption =
+        profitInput?.from && profitInput?.to
+          ? `${fmtDate(profitInput.from)} – ${fmtDate(profitInput.to)}`
+          : undefined;
+      return (
+        <ChartPanel
+          render={(size, action) => (
+            <ProfitabilityChart
+              action={action}
+              caption={caption}
+              departments={profitInput?.departments}
+              rows={output as ProfitByDept[]}
+              size={size}
+            />
+          )}
+          title={`Profitability by department${scopeSuffix([profitInput?.departments])}`}
+        />
+      );
+    }
     if (name === "get_data_overview")
       return <Panel><DataOverviewTiles o={output as DataOverview} /></Panel>;
     return null;

@@ -16,16 +16,23 @@ export default defineAgent({
   //   inconsistent — evals/anomaly-category-filter.eval.ts failed roughly
   //   half the time across repeated runs (sometimes returns zero anomalies
   //   for a category pair that demonstrably has some in the seeded data).
-  // - mistral-medium-latest (current): passes the full eval suite
-  //   consistently, including the arithmetic-safety regression test, and
-  //   gave a noticeably better answer on an open-ended reasoning question
-  //   (correctly identified both recurring Cloud Infrastructure spikes with
-  //   exact figures, vs. Devstral's vaguer "may recur occasionally"). Does
-  //   occasionally hit transient per-minute rate limits under heavy
-  //   back-to-back eval runs — space out `pnpm eval` invocations if that
-  //   happens. Unlike Devstral this is metered, paid API usage, not free
-  //   tier.
-  model: mistral("mistral-medium-latest"),
+  // - mistral-medium-latest: passes the full eval suite consistently,
+  //   including the arithmetic-safety regression test, and gave a noticeably
+  //   better answer on an open-ended reasoning question (correctly
+  //   identified both recurring Cloud Infrastructure spikes with exact
+  //   figures, vs. Devstral's vaguer "may recur occasionally"). But this
+  //   account's per-model rate limits (visible on the Mistral console) show
+  //   the "-latest" alias metered separately from, and far more tightly
+  //   than, the dated snapshot behind it: mistral-medium-latest sits at
+  //   25,000 TPM, vs. 356,250 TPM for mistral-medium-2508 — a ~14x gap for
+  //   presumably the same underlying model. That's what was causing the
+  //   frequent "Rate limit exceeded" errors, not genuine overuse.
+  // - mistral-medium-2508 (current): the dated snapshot "-latest" currently
+  //   points to. Same eval results as mistral-medium-latest (pin, don't
+  //   re-verify from scratch, unless Mistral rotates what "-latest" means
+  //   underneath it), but without the alias's separate low quota. Unlike
+  //   Devstral this is metered, paid API usage, not free tier.
+  model: mistral("mistral-medium-2508"),
   // Manually maintained: bypassing the AI Gateway means eve can't look this
   // up from catalog metadata. Update if Mistral revises Medium's context window.
   modelContextWindowTokens: 128000,

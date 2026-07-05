@@ -2,7 +2,7 @@ import { db } from "./db";
 import { meanStdDev } from "./stats";
 import type {
   Summary, TrendPoint, BudgetRow, Anomaly, Metric, GroupBy, Highlights,
-  CategorySlice, CashflowPoint, DataOverview,
+  CategorySlice, CashflowPoint, DataOverview, ProfitByDept,
 } from "./finance.types";
 export { CATEGORY_BREAKDOWN_TOP_N } from "./finance.types";
 
@@ -115,6 +115,36 @@ export async function getBudgetStatus(input: { month: string; departments?: stri
       pctUsed: budget === 0 ? 0 : actual / budget,
     };
   });
+}
+
+export async function getProfitability(input: {
+  from: string; to: string; departments?: string[];
+}): Promise<ProfitByDept[]> {
+  const sql = db();
+  const deptFilter = input.departments?.length ? sql`AND d.name IN ${sql(input.departments)}` : sql``;
+  // LEFT JOIN with the date bounds in the JOIN (not WHERE) so a department
+  // with no transactions in range still returns a row (income 0, expense 0)
+  // rather than vanishing — a cost center's absence of revenue is itself the
+  // answer to "who's profitable", so it must stay visible.
+  const rows = await sql<{ department: string; income: string; expense: string }[]>`
+    SELECT d.name AS department,
+           COALESCE(SUM(t.amount) FILTER (WHERE t.type = 'income'), 0) AS income,
+           COALESCE(SUM(t.amount) FILTER (WHERE t.type = 'expense'), 0) AS expense
+    FROM departments d
+    LEFT JOIN transactions t ON t.department_id = d.id
+         AND t.date >= ${input.from} AND t.date <= ${input.to}
+    WHERE true ${deptFilter}
+    GROUP BY d.name`;
+  return rows
+    .map((r) => {
+      const income = num(r.income);
+      const expense = num(r.expense);
+      const net = income - expense;
+      return { department: r.department, income, expense, net, margin: income > 0 ? net / income : null };
+    })
+    // Most profitable first, so the chart and the "which team is the engine"
+    // answer both lead with the same department.
+    .sort((a, b) => b.net - a.net);
 }
 
 export async function getAnomalies(input: {

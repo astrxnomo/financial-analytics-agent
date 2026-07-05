@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { config } from "dotenv";
 config({ path: [".env.local", ".env"] });
-import { getSummary, getTrend, getBudgetStatus, getAnomalies, getCategoryBreakdown } from "./finance.js";
+import { getSummary, getTrend, getBudgetStatus, getAnomalies, getCategoryBreakdown, getProfitability } from "./finance.js";
 
 const RANGE = { from: "2025-01-01", to: "2026-12-31" };
 const run = process.env.DATABASE_URL ? describe : describe.skip;
@@ -47,6 +47,27 @@ run("finance lib (integration, needs seeded DATABASE_URL)", () => {
     const c = await getCategoryBreakdown({ ...RANGE, category: "Cloud Infrastructure" });
     expect(c.length).toBeGreaterThan(0);
     expect(c.every((r) => r.category === "Cloud Infrastructure")).toBe(true);
+  });
+
+  it("profitability returns income/expense/net per department, sorted by net desc", async () => {
+    const p = await getProfitability(RANGE);
+    expect(p.length).toBe(5);
+    for (const r of p) expect(r.net).toBeCloseTo(r.income - r.expense, 2);
+    const nets = p.map((r) => r.net);
+    expect([...nets].sort((a, b) => b - a)).toEqual(nets);
+    // Sales books revenue (a net contributor); a pure cost center has null margin.
+    const sales = p.find((r) => r.department === "Sales");
+    expect(sales?.income).toBeGreaterThan(0);
+    expect(sales?.margin).not.toBeNull();
+    const finance = p.find((r) => r.department === "Finance");
+    expect(finance?.income).toBe(0);
+    expect(finance?.margin).toBeNull();
+  });
+
+  it("profitability filters to the requested departments", async () => {
+    const p = await getProfitability({ ...RANGE, departments: ["Sales", "Engineering"] });
+    expect(p.length).toBe(2);
+    expect(new Set(p.map((r) => r.department))).toEqual(new Set(["Sales", "Engineering"]));
   });
 
   it("finds the seeded advertising outliers", async () => {

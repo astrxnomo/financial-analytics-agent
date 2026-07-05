@@ -14,7 +14,7 @@ import {
   YAxis,
 } from "recharts";
 import { CATEGORY_BREAKDOWN_TOP_N, type CategorySlice } from "@/agent/lib/finance.types";
-import { AXIS, fmtDate, fmtMoney, GRID, monthRange, MUTED, SERIES } from "../charts";
+import { AXIS, fmtDate, fmtMoney, GRID, metricLabel, monthRange, MUTED, scopeSuffix, SERIES } from "../charts";
 import { ChartTooltip, type ChartSize } from "./chart-tooltip";
 import { ChartHeader, EmptyState } from "./panel";
 
@@ -25,17 +25,29 @@ const MAX_STACK_CATEGORIES = CATEGORY_BREAKDOWN_TOP_N;
 // donut instead (no time axis to stack along).
 export function CategoryBreakdownChart({
   action,
+  category,
+  department,
+  metric,
   size = "compact",
   slices,
 }: {
   readonly action?: React.ReactNode;
+  readonly category?: string;
+  readonly department?: string;
+  readonly metric?: "income" | "expense";
   readonly size?: ChartSize;
   readonly slices: CategorySlice[];
 }) {
+  // get_category_breakdown defaults to "expense" server-side when metric is
+  // omitted, so the title defaults the same way instead of falling back to a
+  // vague "Monthly" the way the trend chart does.
+  const mixWord = metricLabel(metric) ?? "Expense";
+  const scope = scopeSuffix([department, category]);
+
   if (slices.length === 0) {
     return (
       <div>
-        <ChartHeader action={action} title="Category breakdown" />
+        <ChartHeader action={action} title={`${mixWord} breakdown${scope}`} />
         <EmptyState message="No data for this range." />
       </div>
     );
@@ -63,7 +75,7 @@ export function CategoryBreakdownChart({
     }
     return (
       <div>
-        <ChartHeader action={action} caption={caption} title="Category mix" />
+        <ChartHeader action={action} caption={caption} title={`${mixWord} mix${scope}`} />
         <ResponsiveContainer debounce={200} height={size === "large" ? 620 : 340} width="100%">
           <PieChart>
             <Pie
@@ -106,7 +118,7 @@ export function CategoryBreakdownChart({
 
   return (
     <div>
-      <ChartHeader action={action} caption={caption} title="Category breakdown" />
+      <ChartHeader action={action} caption={caption} title={`${mixWord} breakdown${scope}`} />
       <ResponsiveContainer debounce={200} height={size === "large" ? 640 : 360} width="100%">
         <AreaChart data={data} margin={{ top: 8, right: 16, bottom: 8, left: 8 }}>
           <CartesianGrid stroke={GRID} vertical={false} />

@@ -21,6 +21,14 @@ export interface CashflowPoint {
   period: string; income: number; expense: number; net: number; cumulativeNet: number;
 }
 
+// Income vs. expense and net profit per department for a range. `margin` is
+// net / income, or null for a cost-center department that booked no income
+// (dividing by zero is meaningless — the chart/answer treats null as "n/a"
+// rather than 0%, since 0% would wrongly imply break-even).
+export interface ProfitByDept {
+  department: string; income: number; expense: number; net: number; margin: number | null;
+}
+
 export interface Highlights {
   dataFrom: string;
   dataTo: string;

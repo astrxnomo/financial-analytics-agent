@@ -1,14 +1,24 @@
 "use client";
 
 import type { Anomaly } from "@/agent/lib/finance.types";
-import { CRITICAL, fmtDate, fmtMoney, fmtSigma, monthRange } from "../charts";
+import { CRITICAL, fmtDate, fmtMoney, fmtSigma, monthRange, scopeSuffix } from "../charts";
 import { ChartHeader, EmptyState } from "./panel";
 
-export function AnomalyList({ rows }: { readonly rows: Anomaly[] }) {
+export function AnomalyList({
+  categories,
+  departments,
+  rows,
+}: {
+  readonly categories?: readonly string[];
+  readonly departments?: readonly string[];
+  readonly rows: Anomaly[];
+}) {
+  const scope = scopeSuffix([departments, categories]);
+
   if (rows.length === 0) {
     return (
       <div>
-        <ChartHeader title="Unusual transactions" />
+        <ChartHeader title={`Unusual transactions${scope}`} />
         <EmptyState message="No anomalies found in this range." />
       </div>
     );
@@ -18,7 +28,7 @@ export function AnomalyList({ rows }: { readonly rows: Anomaly[] }) {
     <div>
       <ChartHeader
         caption={monthRange(rows.map((r) => r.date))}
-        title={`${rows.length} unusual ${rows.length === 1 ? "transaction" : "transactions"}`}
+        title={`${rows.length} unusual ${rows.length === 1 ? "transaction" : "transactions"}${scope}`}
       />
       <div className="overflow-x-auto rounded-lg border border-border/60">
         <table className="w-full min-w-[560px] text-sm">

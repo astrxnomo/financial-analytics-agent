@@ -71,3 +71,17 @@ export const monthRange = (periods: readonly string[]): string | undefined => {
   if (first === undefined || last === undefined) return undefined;
   return first === last ? fmtMonth(first) : `${fmtMonth(first)} – ${fmtMonth(last)}`;
 };
+
+// "income"/"expense" as stored in the DB read as jargon in a chart title —
+// analysts think in "Revenue" vs "Expense".
+export const metricLabel = (metric?: "income" | "expense"): string | undefined =>
+  metric === "income" ? "Revenue" : metric === "expense" ? "Expense" : undefined;
+
+// Renders the department/category filters a tool call was scoped to as a
+// " — Engineering, Cloud Infrastructure" suffix, so a chart title never
+// silently implies "all departments" when it's actually one. Omits anything
+// falsy so callers can pass optional single values and arrays interchangeably.
+export const scopeSuffix = (parts: ReadonlyArray<string | readonly string[] | undefined>): string => {
+  const flat = parts.flatMap((p) => (Array.isArray(p) ? p : p ? [p] : []));
+  return flat.length ? ` — ${flat.join(", ")}` : "";
+};

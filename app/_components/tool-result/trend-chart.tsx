@@ -14,23 +14,41 @@ import {
   YAxis,
 } from "recharts";
 import type { TrendPoint } from "@/agent/lib/finance.types";
-import { AXIS, fmtDate, fmtMoney, GRID, monthRange, MUTED, SERIES, TOOLTIP_CURSOR_FILL } from "../charts";
+import {
+  AXIS,
+  fmtDate,
+  fmtMoney,
+  GRID,
+  metricLabel,
+  monthRange,
+  MUTED,
+  scopeSuffix,
+  SERIES,
+  TOOLTIP_CURSOR_FILL,
+} from "../charts";
 import { ChartTooltip, type ChartSize } from "./chart-tooltip";
 import { ChartHeader, EmptyState } from "./panel";
 
 export function TrendChart({
   action,
+  departments,
+  metric,
   points,
   size = "compact",
 }: {
   readonly action?: React.ReactNode;
+  readonly departments?: readonly string[];
+  readonly metric?: "income" | "expense";
   readonly points: TrendPoint[];
   readonly size?: ChartSize;
 }) {
+  const metricWord = metricLabel(metric) ?? "Monthly";
+  const deptSuffix = scopeSuffix([departments]);
+
   if (points.length === 0) {
     return (
       <div>
-        <ChartHeader action={action} title="Monthly trend" />
+        <ChartHeader action={action} title={`${metricWord} trend${deptSuffix}`} />
         <EmptyState message="No data for this range." />
       </div>
     );
@@ -46,7 +64,7 @@ export function TrendChart({
     if (!byDept) {
       return (
         <div>
-          <ChartHeader action={action} caption={caption} title="Amount" />
+          <ChartHeader action={action} caption={caption} title={`${metricWord}${deptSuffix}`} />
           <div className="w-fit min-w-36 rounded-lg bg-muted/40 px-4 py-3">
             <div className="font-semibold text-2xl tabular-nums">
               {fmtMoney(points[0]?.value ?? 0)}
@@ -61,7 +79,7 @@ export function TrendChart({
       SERIES[rows.findIndex((r) => r.department === department) % SERIES.length];
     return (
       <div>
-        <ChartHeader action={action} caption={caption} title="Totals by department" />
+        <ChartHeader action={action} caption={caption} title={`${metricWord} totals by department`} />
         <ResponsiveContainer debounce={200} height={size === "large" ? 640 : 320} width="100%">
           <BarChart data={rows} margin={{ top: 8, right: 16, bottom: 8, left: 8 }}>
             <CartesianGrid stroke={GRID} vertical={false} />
@@ -102,7 +120,7 @@ export function TrendChart({
   if (!byDept) {
     return (
       <div>
-        <ChartHeader action={action} caption={caption} title="Monthly trend" />
+        <ChartHeader action={action} caption={caption} title={`${metricWord} trend${deptSuffix}`} />
         <ResponsiveContainer debounce={200} height={size === "large" ? 640 : 320} width="100%">
           <LineChart data={points} margin={{ top: 8, right: 16, bottom: 8, left: 8 }}>
             <CartesianGrid stroke={GRID} vertical={false} />
@@ -151,7 +169,7 @@ export function TrendChart({
 
   return (
     <div>
-      <ChartHeader action={action} caption={caption} title="Monthly trend by department" />
+      <ChartHeader action={action} caption={caption} title={`${metricWord} trend by department`} />
       <ResponsiveContainer debounce={200} height={size === "large" ? 680 : 360} width="100%">
         <LineChart data={data} margin={{ top: 8, right: 16, bottom: 8, left: 8 }}>
           <CartesianGrid stroke={GRID} vertical={false} />

@@ -2,27 +2,33 @@
 
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { BudgetRow } from "@/agent/lib/finance.types";
-import { AXIS, CRITICAL, fmtMoney, fmtMonth, GRID, MUTED, SERIES, TOOLTIP_CURSOR_FILL } from "../charts";
+import { AXIS, CRITICAL, fmtMoney, fmtMonth, GRID, MUTED, scopeSuffix, SERIES, TOOLTIP_CURSOR_FILL } from "../charts";
 import { ChartTooltip, type ChartSize } from "./chart-tooltip";
 import { ChartHeader, EmptyState, LegendSwatch } from "./panel";
 
 export function BudgetChart({
   action,
+  departments,
   month,
   rows,
   size = "compact",
 }: {
   readonly action?: React.ReactNode;
+  readonly departments?: readonly string[];
   readonly month?: string;
   readonly rows: BudgetRow[];
   readonly size?: ChartSize;
 }) {
+  // get_budget_status only ever covers a single month (there's no multi-month
+  // aggregation in the lib) — the caption always names that exact month so a
+  // "this year" question can never read as if it were an annual total.
   const caption = month ? fmtMonth(month) : undefined;
+  const title = `Budget vs. actual${scopeSuffix([departments])}`;
 
   if (rows.length === 0) {
     return (
       <div>
-        <ChartHeader action={action} caption={caption} title="Budget vs. actual" />
+        <ChartHeader action={action} caption={caption} title={title} />
         <EmptyState message="No budget data for this month." />
       </div>
     );
@@ -34,7 +40,7 @@ export function BudgetChart({
 
   return (
     <div>
-      <ChartHeader action={action} caption={caption} title="Budget vs. actual" />
+      <ChartHeader action={action} caption={caption} title={title} />
       <p className="mb-2 text-muted-foreground text-xs">{overBudgetSummary}</p>
       <div className="mb-2 flex flex-wrap items-center gap-4">
         <LegendSwatch color={SERIES[0]} label="Budget" />
